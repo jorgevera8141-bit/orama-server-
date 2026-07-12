@@ -48,7 +48,7 @@
 
 <script>
 async function loadAll(){
-  await Promise.all([loadOrders(), loadSummary()]);
+ ()]); await Promise.all([loadOrders(), loadSummary
 }
 
 async function loadOrders(){
@@ -75,7 +75,7 @@ async function loadSummary(){
   const res = await fetch("/api/resumen");
   const data = await res.json();
   document.getElementById("total-ordenes").textContent = data.ordenes||0;
-  document.getElementById("total-ventas").textContent = "$"+(data.total||0).toFixed(2);
+  document.getElementById("total-ventas").textContent = "$"+parseFloat(data.total||0).toFixed(2);
 }
 
 async function cerrarOrden(id){
