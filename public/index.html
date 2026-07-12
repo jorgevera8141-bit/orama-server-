@@ -106,7 +106,7 @@ function filterCat(cat){
 function renderItems(){
   const filtered=currentCat==="Todos"?menu:menu.filter(i=>i.categoria===currentCat);
   document.getElementById("items").innerHTML=filtered.map(i=>
-    '<div class="item"><div><div class="item-name">'+i.nombre+'</div><div class="item-price">$'+i.precio.toFixed(2)+'</div></div><button class="add-btn" onclick="addToCart('+i.id+',this)">+</button></div>'
+    '<div class="item"><div><div class="item-name">'+i.nombre+'</div><div class="item-price">$'+i.parseFloat(i.precio).toFixed(2)+'</div></div><button class="add-btn" onclick="addToCart('+i.id+',this)">+</button></div>'
   ).join("")||'<div class="empty">Sin articulos</div>';
 }
 
@@ -114,7 +114,7 @@ function addToCart(id,btn){
   const item=menu.find(i=>i.id===id);
   const ex=cart.find(c=>c.id===id);
   if(ex) ex.cantidad++;
-  else cart.push({id,nombre:item.nombre,precio:item.precio,cantidad:1});
+  else cart.push({id,nombre:item.nombre,precio:parseFloat(item.precio),cantidad:1});
   updateCart();
 }
 
