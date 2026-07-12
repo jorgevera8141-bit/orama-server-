@@ -150,7 +150,23 @@ app.post('/api/ordenes', async (req, res) => {
 });
 
 app.put('/api/ordenes/:id/cerrar', async (req, res) => {
+  const orden = await pool.query('SELECT * FROM ordenes WHERE id=$1', [req.params.id]);
   await pool.query("UPDATE ordenes SET status='cerrada' WHERE id=$1", [req.params.id]);
+  
+  // Send ntfy notification
+  const mesa = orden.rows[0]?.mesa_nombre || 'Mesa';
+  try{
+    await fetch('https://ntfy.sh/orama-ordenes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        'Title': 'Orden lista',
+        'Tags': 'bell'
+      },
+      body: mesa + ' lista para servir!'
+    });
+  }catch(e){ console.log('ntfy error:', e); }
+  
   res.json({ success: true });
 });
 
