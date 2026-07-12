@@ -69,13 +69,56 @@ app.get('/api/menu', async (req, res) => {
   res.json(result.rows);
 });
 
-app.post('/api/menu', async (req, res) => {
-  const { nombre, categoria, precio } = req.body;
+// GET all menu items including inactive (for admin)
+app.get('/api/menu', async (req, res) => {
+  const all = req.query.all === '1';
   const result = await pool.query(
-    'INSERT INTO menu_items (nombre, categoria, precio) VALUES ($1, $2, $3) RETURNING *',
-    [nombre, categoria, precio]
+    all ? 'SELECT * FROM menu_items ORDER BY categoria, nombre' 
+        : 'SELECT * FROM menu_items WHERE activo=1 ORDER BY categoria, nombre'
   );
-  res.json(result.rows[0]);
+  res.json(result.rows);
+});
+
+// UPDATE menu item active status
+app.put('/api/menu/:id', async (req, res) => {
+  const { activo } = req.body;
+  await pool.query('UPDATE menu_items SET activo=$1 WHERE id=$2', [activo, req.params.id]);
+  res.json({ success: true });
+});
+
+// REPORTS by date range
+app.get('/api/reportes', async (req, res) => {
+  const { from, to } = req.query;
+  const [summary, categorias, orders] = await Promise.all([
+    pool.query(`
+      SELECT 
+        COUNT(*) as ordenes,
+        COALESCE(SUM(total),0) as total,
+        COUNT(DISTINCT DATE(created_at)) as dias
+      FROM ordenes 
+      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+    `, [from, to]),
+    pool.query(`
+      SELECT mi.categoria, COALESCE(SUM(oi.precio * oi.cantidad),0) as total
+      FROM orden_items oi
+      JOIN ordenes o ON o.id = oi.orden_id
+      JOIN menu_items mi ON mi.nombre = oi.item_nombre
+      WHERE o.status='cerrada' AND DATE(o.created_at) BETWEEN $1 AND $2
+      GROUP BY mi.categoria
+      ORDER BY total DESC
+    `, [from, to]),
+    pool.query(`
+      SELECT * FROM ordenes 
+      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      ORDER BY created_at DESC
+      LIMIT 100
+    `, [from, to])
+  ]);
+  res.json({
+    ...summary.rows[0],
+    categorias: categorias.rows,
+    orders: orders.rows
+  });
 });
 
 // ORDENES

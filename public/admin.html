@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Admin</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--amber:#E8A45A;--red:#D46B6B}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:20px;text-align:center}
+  .header h1{font-size:22px;font-family:Georgia,serif;letter-spacing:2px}
+  .header p{font-size:12px;opacity:0.8;margin-top:4px}
+  .tabs{display:flex;background:white;border-bottom:2px solid var(--border)}
+  .tab{flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent}
+  .tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+  .tab-content{display:none;padding:16px}
+  .tab-content.active{display:block}
+
+  /* REPORTS */
+  .date-filter{background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .date-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .date-label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px}
+  .date-input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px;font-family:Arial,sans-serif}
+  .search-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer}
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .stat-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .stat-value{font-size:24px;font-weight:700;color:var(--teal)}
+  .stat-label{font-size:11px;color:var(--gray);margin-top:4px;text-transform:uppercase;letter-spacing:0.4px}
+  .order-row{background:white;border-radius:10px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center}
+  .order-row-left{flex:1}
+  .order-row-mesa{font-size:13px;font-weight:700;color:var(--brown)}
+  .order-row-time{font-size:11px;color:var(--gray);margin-top:2px}
+  .order-row-total{font-size:15px;font-weight:700;color:var(--teal)}
+  .section-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;margin:12px 0 6px}
+  .cat-row{background:white;border-radius:10px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center}
+  .cat-name{font-size:13px;font-weight:600;color:var(--brown)}
+  .cat-total{font-size:13px;font-weight:700;color:var(--teal)}
+  .empty{text-align:center;padding:30px;color:var(--gray);font-size:13px}
+
+  /* MENU MANAGEMENT */
+  .menu-item-row{background:white;border-radius:10px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center}
+  .menu-item-info{flex:1}
+  .menu-item-name{font-size:13px;font-weight:700;color:var(--brown)}
+  .menu-item-cat{font-size:11px;color:var(--gray);margin-top:2px}
+  .menu-item-price{font-size:13px;font-weight:700;color:var(--teal);margin-right:10px}
+  .toggle-btn{border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer}
+  .toggle-btn.active{background:#e8f8f4;color:var(--teal)}
+  .toggle-btn.inactive{background:#fbe9e9;color:var(--red)}
+  .search-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-family:Arial,sans-serif;margin-bottom:10px}
+  .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🌿 ORAMA CAFÉ</h1>
+  <p>Administración</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('reports')">📊 Ventas</div>
+  <div class="tab" onclick="showTab('menu')">📋 Menú</div>
+</div>
+
+<!-- REPORTS TAB -->
+<div id="tab-reports" class="tab-content active">
+  <div class="date-filter">
+    <div class="date-row">
+      <div>
+        <span class="date-label">Desde</span>
+        <input type="date" id="date-from" class="date-input">
+      </div>
+      <div>
+        <span class="date-label">Hasta</span>
+        <input type="date" id="date-to" class="date-input">
+      </div>
+    </div>
+    <button class="search-btn" onclick="loadReports()">🔍 Buscar</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="rep-ordenes">—</div>
+      <div class="stat-label">Ordenes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="rep-total">—</div>
+      <div class="stat-label">Total vendido</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="rep-promedio">—</div>
+      <div class="stat-label">Promedio por orden</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="rep-dias">—</div>
+      <div class="stat-label">Dias con ventas</div>
+    </div>
+  </div>
+
+  <div class="section-label">Por categoría</div>
+  <div id="rep-categorias"><div class="empty">Selecciona un rango de fechas</div></div>
+
+  <div class="section-label">Ordenes del periodo</div>
+  <div id="rep-ordenes-list"><div class="empty">Selecciona un rango de fechas</div></div>
+</div>
+
+<!-- MENU TAB -->
+<div id="tab-menu" class="tab-content">
+  <input type="text" class="search-input" placeholder="Buscar producto..." oninput="filterMenu(this.value)" id="menu-search">
+  <div id="menu-list"><div class="spinner"></div></div>
+</div>
+
+<script>
+let allMenuItems = [];
+
+function showTab(tab){
+  document.querySelectorAll(".tab").forEach((t,i)=>t.classList.toggle("active",["reports","menu"][i]===tab));
+  document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active"));
+  document.getElementById("tab-"+tab).classList.add("active");
+  if(tab==="menu" && !allMenuItems.length) loadMenuItems();
+}
+
+// Set default dates (today)
+const today = new Date().toLocaleDateString("en-CA");
+const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString("en-CA");
+document.getElementById("date-from").value = firstOfMonth;
+document.getElementById("date-to").value = today;
+
+async function loadReports(){
+  const from = document.getElementById("date-from").value;
+  const to = document.getElementById("date-to").value;
+  if(!from || !to){ alert("Selecciona ambas fechas"); return; }
+
+  try{
+    const res = await fetch("/api/reportes?from="+from+"&to="+to);
+    const data = await res.json();
+
+    document.getElementById("rep-ordenes").textContent = data.ordenes || 0;
+    document.getElementById("rep-total").textContent = "$"+parseFloat(data.total||0).toFixed(2);
+    document.getElementById("rep-promedio").textContent = data.ordenes > 0 ? "$"+parseFloat((data.total||0)/data.ordenes).toFixed(2) : "$0";
+    document.getElementById("rep-dias").textContent = data.dias || 0;
+
+    // By category
+    const cats = data.categorias || [];
+    if(cats.length){
+      document.getElementById("rep-categorias").innerHTML = cats.map(c=>
+        '<div class="cat-row"><span class="cat-name">'+c.categoria+'</span><span class="cat-total">$'+parseFloat(c.total).toFixed(2)+'</span></div>'
+      ).join("");
+    } else {
+      document.getElementById("rep-categorias").innerHTML = '<div class="empty">Sin datos</div>';
+    }
+
+    // Orders list
+    const orders = data.orders || [];
+    if(orders.length){
+      document.getElementById("rep-ordenes-list").innerHTML = orders.map(o=>
+        '<div class="order-row"><div class="order-row-left"><div class="order-row-mesa">'+o.mesa_nombre+'</div><div class="order-row-time">'+new Date(o.created_at).toLocaleString("es-MX",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div></div><div class="order-row-total">$'+parseFloat(o.total).toFixed(2)+'</div></div>'
+      ).join("");
+    } else {
+      document.getElementById("rep-ordenes-list").innerHTML = '<div class="empty">Sin ordenes en este periodo</div>';
+    }
+
+  }catch(e){
+    alert("Error al cargar reporte");
+  }
+}
+
+async function loadMenuItems(){
+  const res = await fetch("/api/menu?all=1");
+  allMenuItems = await res.json();
+  renderMenuItems(allMenuItems);
+}
+
+function filterMenu(q){
+  const filtered = q ? allMenuItems.filter(i=>i.nombre.toLowerCase().includes(q.toLowerCase()) || i.categoria.toLowerCase().includes(q.toLowerCase())) : allMenuItems;
+  renderMenuItems(filtered);
+}
+
+function renderMenuItems(items){
+  document.getElementById("menu-list").innerHTML = items.map(i=>
+    '<div class="menu-item-row"><div class="menu-item-info"><div class="menu-item-name">'+i.nombre+'</div><div class="menu-item-cat">'+i.categoria+'</div></div><span class="menu-item-price">$'+parseFloat(i.precio).toFixed(2)+'</span><button class="toggle-btn '+(i.activo?'active':'inactive')+'" onclick="toggleItem('+i.id+','+i.activo+')">'+(i.activo?'Activo':'Inactivo')+'</button></div>'
+  ).join("") || '<div class="empty">Sin resultados</div>';
+}
+
+async function toggleItem(id, currentStatus){
+  const newStatus = currentStatus ? 0 : 1;
+  await fetch("/api/menu/"+id, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({activo:newStatus})});
+  await loadMenuItems();
+  const q = document.getElementById("menu-search").value;
+  if(q) filterMenu(q);
+}
+</script>
+</body>
+</html>
