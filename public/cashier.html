@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Caja</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:20px;text-align:center}
+  .header h1{font-size:22px;font-family:Georgia,serif;letter-spacing:2px}
+  .header p{font-size:12px;opacity:0.8;margin-top:4px}
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+  .summary-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .summary-value{font-size:24px;font-weight:700;color:var(--teal)}
+  .summary-label{font-size:11px;color:var(--gray);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+  .section-title{font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;padding:8px 16px}
+  .order-card{background:white;border-radius:12px;padding:14px 16px;margin:0 16px 10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid var(--teal)}
+  .order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .order-mesa{font-size:15px;font-weight:700;color:var(--brown)}
+  .order-time{font-size:11px;color:var(--gray)}
+  .order-total{font-size:18px;font-weight:700;color:var(--teal)}
+  .order-items{font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.6}
+  .pay-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:10px;padding:10px;font-size:14px;font-weight:700;cursor:pointer}
+  .empty{text-align:center;padding:40px;color:var(--gray)}
+  .refresh-btn{background:rgba(255,255,255,0.2);border:none;border-radius:20px;padding:6px 14px;color:white;font-size:12px;cursor:pointer;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🌿 ORAMA CAFÉ</h1>
+  <p>— Caja —</p>
+  <button class="refresh-btn" onclick="loadAll()">↻ Actualizar</button>
+</div>
+<div class="summary">
+  <div class="summary-card">
+    <div class="summary-value" id="total-ordenes">0</div>
+    <div class="summary-label">Órdenes hoy</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value" id="total-ventas">$0</div>
+    <div class="summary-label">Ventas hoy</div>
+  </div>
+</div>
+<div class="section-title">Órdenes activas</div>
+<div id="orders-list"><div class="empty">Cargando...</div></div>
+
+<script>
+async function loadAll(){
+  await Promise.all([loadOrders(), loadSummary()]);
+}
+
+async function loadOrders(){
+  const res = await fetch("/api/ordenes");
+  const orders = await res.json();
+  const list = document.getElementById("orders-list");
+  if(!orders.length){
+    list.innerHTML="<div class='empty'>No hay órdenes activas</div>";
+    return;
+  }
+  list.innerHTML = orders.map(o=>`
+    <div class="order-card">
+      <div class="order-header">
+        <span class="order-mesa">${o.mesa_nombre}</span>
+        <span class="order-total">$${o.total.toFixed(2)}</span>
+      </div>
+      <div class="order-time">${new Date(o.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}</div>
+      <button class="pay-btn" onclick="cerrarOrden(${o.id})">✅ Cobrar y cerrar</button>
+    </div>
+  `).join("");
+}
+
+async function loadSummary(){
+  const res = await fetch("/api/resumen");
+  const data = await res.json();
+  document.getElementById("total-ordenes").textContent = data.ordenes||0;
+  document.getElementById("total-ventas").textContent = "$"+(data.total||0).toFixed(2);
+}
+
+async function cerrarOrden(id){
+  await fetch("/api/ordenes/"+id+"/cerrar",{method:"PUT"});
+  loadAll();
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
