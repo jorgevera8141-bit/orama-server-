@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Barra</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--amber:#E8A45A}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;background:#1a1a1a;max-width:600px;margin:0 auto;min-height:100vh}
+  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+  .header h1{font-size:20px;font-family:Georgia,serif;letter-spacing:2px}
+  .header-right{text-align:right}
+  .time{font-size:18px;font-weight:700}
+  .refresh-btn{background:rgba(255,255,255,0.2);border:none;border-radius:20px;padding:5px 12px;color:white;font-size:12px;cursor:pointer;margin-top:4px;display:block}
+  .counter{background:#2d2d2d;padding:10px 20px;display:flex;gap:20px}
+  .counter-item{text-align:center}
+  .counter-value{font-size:22px;font-weight:700;color:var(--teal)}
+  .counter-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px}
+  .orders-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;padding-bottom:40px}
+  .order-card{background:#2d2d2d;border-radius:14px;overflow:hidden;border:2px solid #3d3d3d}
+  .order-card.urgent{border-color:var(--amber)}
+  .order-header{background:#3d3d3d;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+  .order-mesa{font-size:15px;font-weight:700;color:white}
+  .order-time-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;background:var(--teal);color:white}
+  .order-time-badge.urgent{background:var(--amber);color:white}
+  .order-items{padding:12px 14px}
+  .order-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #3d3d3d}
+  .order-item:last-child{border-bottom:none}
+  .item-qty{background:var(--teal);color:white;border-radius:6px;padding:2px 7px;font-size:13px;font-weight:700;flex-shrink:0}
+  .item-name{font-size:13px;color:#ddd;flex:1}
+  .ready-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:2px}
+  .ready-btn:active{background:#0d6b54}
+  .empty{text-align:center;padding:60px 20px;color:#666}
+  .empty-icon{font-size:48px;margin-bottom:12px}
+  .empty-text{font-size:16px;color:#888}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:0 auto}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+  .live-dot{width:8px;height:8px;background:#1aab85;border-radius:50%;display:inline-block;animation:pulse 2s infinite;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>ORAMA BARRA</h1>
+    <div style="font-size:11px;opacity:0.7;margin-top:2px"><span class="live-dot"></span>En vivo</div>
+  </div>
+  <div class="header-right">
+    <div class="time" id="clock">--:--</div>
+    <button class="refresh-btn" onclick="loadOrders()">Actualizar</button>
+  </div>
+</div>
+<div class="counter">
+  <div class="counter-item">
+    <div class="counter-value" id="pending-count">0</div>
+    <div class="counter-label">Pendientes</div>
+  </div>
+  <div class="counter-item">
+    <div class="counter-value" id="done-count" style="color:#888">0</div>
+    <div class="counter-label">Entregadas hoy</div>
+  </div>
+</div>
+<div id="orders-grid" class="orders-grid">
+  <div style="grid-column:1/-1;text-align:center;padding:40px"><div class="spinner"></div></div>
+</div>
+
+<script>
+let doneCount = 0;
+
+function updateClock(){
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+}
+
+function getElapsed(createdAt){
+  const diff = Math.floor((Date.now() - new Date(createdAt)) / 60000);
+  if(diff < 1) return "ahora";
+  if(diff === 1) return "1 min";
+  return diff + " min";
+}
+
+async function loadOrders(){
+  try{
+    const res = await fetch("/api/ordenes");
+    const orders = await res.json();
+    const grid = document.getElementById("orders-grid");
+    document.getElementById("pending-count").textContent = orders.length;
+
+    if(!orders.length){
+      grid.innerHTML = '<div style="grid-column:1/-1"><div class="empty"><div class="empty-icon">☕</div><div class="empty-text">Sin ordenes pendientes</div></div></div>';
+      return;
+    }
+
+    let html = "";
+    for(const o of orders){
+      const itemsRes = await fetch("/api/ordenes/"+o.id+"/items");
+      const items = await itemsRes.json();
+      const elapsed = getElapsed(o.created_at);
+      const mins = Math.floor((Date.now() - new Date(o.created_at)) / 60000);
+      const urgent = mins >= 10;
+
+      html += '<div class="order-card'+(urgent?" urgent":"")+'">';
+      html += '<div class="order-header">';
+      html += '<span class="order-mesa">'+o.mesa_nombre+'</span>';
+      html += '<span class="order-time-badge'+(urgent?" urgent":"")+'">'+elapsed+'</span>';
+      html += '</div>';
+      html += '<div class="order-items">';
+      items.forEach(i=>{
+        html += '<div class="order-item"><span class="item-qty">x'+i.cantidad+'</span><span class="item-name">'+i.item_nombre+'</span></div>';
+      });
+      html += '</div>';
+      html += '<button class="ready-btn" onclick="marcarListo('+o.id+')">✅ Listo — Entregar</button>';
+      html += '</div>';
+    }
+    grid.innerHTML = html;
+  }catch(e){
+    document.getElementById("orders-grid").innerHTML='<div style="grid-column:1/-1;text-align:center;padding:40px;color:#666">Error al cargar ordenes</div>';
+  }
+}
+
+async function marcarListo(id){
+  await fetch("/api/ordenes/"+id+"/cerrar",{method:"PUT"});
+  doneCount++;
+  document.getElementById("done-count").textContent = doneCount;
+  loadOrders();
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+loadOrders();
+setInterval(loadOrders, 30000);
+</script>
+</body>
+</html>
