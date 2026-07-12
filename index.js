@@ -1,94 +1,142 @@
 const express = require('express');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const path = require('path');
 
 const app = express();
-const PORT = 3001;
-const db = new Database('orama.db');
+const PORT = process.env.PORT || 3001;
+
+// Use DATABASE_URL env var on Railway, or local SQLite fallback
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:nwFIKcmWxuKUHUXorawzbqmIumCfAEMV@tokaido.proxy.rlwy.net:22840/railway',
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
 
 app.use(express.json());
 app.use(express.static('public'));
 
 // Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS mesas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    status TEXT DEFAULT 'disponible'
-  );
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mesas (
+      id SERIAL PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      status TEXT DEFAULT 'disponible'
+    );
 
-  CREATE TABLE IF NOT EXISTS menu_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    categoria TEXT NOT NULL,
-    precio REAL NOT NULL,
-    activo INTEGER DEFAULT 1
-  );
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id SERIAL PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      categoria TEXT NOT NULL,
+      precio NUMERIC NOT NULL,
+      activo INTEGER DEFAULT 1
+    );
 
-  CREATE TABLE IF NOT EXISTS ordenes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mesa_id INTEGER,
-    mesa_nombre TEXT,
-    status TEXT DEFAULT 'abierta',
-    total REAL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+    CREATE TABLE IF NOT EXISTS ordenes (
+      id SERIAL PRIMARY KEY,
+      mesa_id INTEGER,
+      mesa_nombre TEXT,
+      status TEXT DEFAULT 'abierta',
+      total NUMERIC DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
-  CREATE TABLE IF NOT EXISTS orden_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    orden_id INTEGER,
-    item_nombre TEXT,
-    precio REAL,
-    cantidad INTEGER DEFAULT 1
-  );
-`);
+    CREATE TABLE IF NOT EXISTS orden_items (
+      id SERIAL PRIMARY KEY,
+      orden_id INTEGER,
+      item_nombre TEXT,
+      precio NUMERIC,
+      cantidad INTEGER DEFAULT 1
+    );
+  `);
+  console.log('Database ready');
+}
 
 // MESAS
-app.get('/api/mesas', (req, res) => {
-  res.json(db.prepare('SELECT * FROM mesas').all());
-});
-app.post('/api/mesas', (req, res) => {
-  const { nombre } = req.body;
-  const result = db.prepare('INSERT INTO mesas (nombre) VALUES (?)').run(nombre);
-  res.json({ id: result.lastInsertRowid, nombre });
+app.get('/api/mesas', async (req, res) => {
+  const result = await pool.query('SELECT * FROM mesas ORDER BY id');
+  res.json(result.rows);
 });
 
-app.post('/api/menu', (req, res) => {
-  const { nombre, categoria, precio } = req.body;
-  const result = db.prepare('INSERT INTO menu_items (nombre, categoria, precio) VALUES (?,?,?)').run(nombre, categoria, precio);
-  res.json({ id: result.lastInsertRowid, nombre, categoria, precio });
+app.post('/api/mesas', async (req, res) => {
+  const { nombre } = req.body;
+  const result = await pool.query('INSERT INTO mesas (nombre) VALUES ($1) RETURNING *', [nombre]);
+  res.json(result.rows[0]);
 });
+
 // MENU
-app.get('/api/menu', (req, res) => {
-  res.json(db.prepare('SELECT * FROM menu_items WHERE activo=1 ORDER BY categoria, nombre').all());
+app.get('/api/menu', async (req, res) => {
+  const result = await pool.query('SELECT * FROM menu_items WHERE activo=1 ORDER BY categoria, nombre');
+  res.json(result.rows);
+});
+
+app.post('/api/menu', async (req, res) => {
+  const { nombre, categoria, precio } = req.body;
+  const result = await pool.query(
+    'INSERT INTO menu_items (nombre, categoria, precio) VALUES ($1, $2, $3) RETURNING *',
+    [nombre, categoria, precio]
+  );
+  res.json(result.rows[0]);
 });
 
 // ORDENES
-app.get('/api/ordenes', (req, res) => {
-  res.json(db.prepare("SELECT * FROM ordenes WHERE status='abierta' ORDER BY created_at DESC").all());
+app.get('/api/ordenes', async (req, res) => {
+  const result = await pool.query("SELECT * FROM ordenes WHERE status='abierta' ORDER BY created_at DESC");
+  res.json(result.rows);
 });
 
-app.post('/api/ordenes', (req, res) => {
+app.get('/api/ordenes/:id/items', async (req, res) => {
+  const result = await pool.query('SELECT * FROM orden_items WHERE orden_id=$1', [req.params.id]);
+  res.json(result.rows);
+});
+
+app.post('/api/ordenes', async (req, res) => {
   const { mesa_id, mesa_nombre, items } = req.body;
   const total = items.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
-  const orden = db.prepare('INSERT INTO ordenes (mesa_id, mesa_nombre, total) VALUES (?,?,?)').run(mesa_id, mesa_nombre, total);
-  const insertItem = db.prepare('INSERT INTO orden_items (orden_id, item_nombre, precio, cantidad) VALUES (?,?,?,?)');
-  items.forEach(i => insertItem.run(orden.lastInsertRowid, i.nombre, i.precio, i.cantidad));
-  res.json({ id: orden.lastInsertRowid, total });
+  const orden = await pool.query(
+    'INSERT INTO ordenes (mesa_id, mesa_nombre, total) VALUES ($1, $2, $3) RETURNING *',
+    [mesa_id, mesa_nombre, total]
+  );
+  const ordenId = orden.rows[0].id;
+  for (const item of items) {
+    await pool.query(
+      'INSERT INTO orden_items (orden_id, item_nombre, precio, cantidad) VALUES ($1, $2, $3, $4)',
+      [ordenId, item.nombre, item.precio, item.cantidad]
+    );
+  }
+  res.json({ id: ordenId, total });
 });
 
-app.put('/api/ordenes/:id/cerrar', (req, res) => {
-  db.prepare("UPDATE ordenes SET status='cerrada' WHERE id=?").run(req.params.id);
+app.put('/api/ordenes/:id/cerrar', async (req, res) => {
+  await pool.query("UPDATE ordenes SET status='cerrada' WHERE id=$1", [req.params.id]);
   res.json({ success: true });
 });
 
 // SUMMARY
-app.get('/api/resumen', (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const data = db.prepare(`SELECT COUNT(*) as ordenes, SUM(total) as total FROM ordenes WHERE status='cerrada' AND date(created_at)=?`).get(today);
-  res.json(data);
+app.get('/api/resumen', async (req, res) => {
+  const result = await pool.query(
+    "SELECT COUNT(*) as ordenes, COALESCE(SUM(total),0) as total FROM ordenes WHERE status='cerrada' AND DATE(created_at)=CURRENT_DATE"
+  );
+  res.json(result.rows[0]);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Orama Server running at http://localhost:${PORT}`);
+// SEED mesas if empty
+app.post('/api/seed', async (req, res) => {
+  const check = await pool.query('SELECT COUNT(*) FROM mesas');
+  if (parseInt(check.rows[0].count) > 0) {
+    return res.json({ message: 'Already seeded' });
+  }
+  const mesas = ['Mesa 1','Mesa 2','Mesa 3','Mesa 4','Mesa 5','Mesa 7','Mesa 8','Mesa 9','Mesa 9A','Mesa 10','Mesa 11','Mesa 12','Mesa 14','Barra','Boutique'];
+  for (const m of mesas) {
+    await pool.query('INSERT INTO mesas (nombre) VALUES ($1)', [m]);
+  }
+  res.json({ message: 'Mesas seeded', count: mesas.length });
+});
+
+initDB().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Orama Server running at http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error('DB init error:', err);
+  process.exit(1);
 });
