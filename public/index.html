@@ -106,7 +106,7 @@ function filterCat(cat){
 function renderItems(){
   const filtered=currentCat==="Todos"?menu:menu.filter(i=>i.categoria===currentCat);
   document.getElementById("items").innerHTML=filtered.map(i=>
-    '<div class="item"><div><div class="item-name">'+i.nombre+'</div><div class="item-price">$'+i.parseFloat(i.precio).toFixed(2)+'</div></div><button class="add-btn" onclick="addToCart('+i.id+',this)">+</button></div>'
+    '<div class="item"><div><div class="item-name">'+i.nombre+'</div><div class="item-price">$'+parseFloat(i.precio).toFixed(2)+'</div></div><button class="add-btn" onclick="addToCart('+i.id+',this)">+</button></div>'
   ).join("")||'<div class="empty">Sin articulos</div>';
 }
 
