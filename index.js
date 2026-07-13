@@ -193,7 +193,57 @@ app.post('/api/seed', async (req, res) => {
   }
   res.json({ message: 'Mesas seeded', count: mesas.length });
 });
+// GASTOS
+app.get('/api/gastos', async (req, res) => {
+  const { from, to } = req.query;
+  let query = 'SELECT * FROM gastos';
+  let params = [];
+  if(from && to){
+    query += ' WHERE fecha BETWEEN $1 AND $2';
+    params = [from, to];
+  }
+  query += ' ORDER BY fecha DESC, created_at DESC';
+  const result = await pool.query(query, params);
+  res.json(result.rows);
+});
 
+app.post('/api/gastos', async (req, res) => {
+  const { categoria, descripcion, monto, fecha } = req.body;
+  const result = await pool.query(
+    'INSERT INTO gastos (categoria, descripcion, monto, fecha) VALUES ($1, $2, $3, $4) RETURNING *',
+    [categoria, descripcion, monto, fecha || new Date().toLocaleDateString('en-CA')]
+  );
+  res.json(result.rows[0]);
+});
+
+app.delete('/api/gastos/:id', async (req, res) => {
+  await pool.query('DELETE FROM gastos WHERE id=$1', [req.params.id]);
+  res.json({ success: true });
+});
+
+// FINANZAS P&L
+app.get('/api/finanzas', async (req, res) => {
+  const { from, to } = req.query;
+  const [ingresos, gastos] = await Promise.all([
+    pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') as mes,
+        COALESCE(SUM(total), 0) as total
+      FROM ordenes 
+      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      GROUP BY mes ORDER BY mes
+    `, [from, to]),
+    pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', fecha), 'YYYY-MM') as mes,
+        COALESCE(SUM(monto), 0) as total
+      FROM gastos 
+      WHERE fecha BETWEEN $1 AND $2
+      GROUP BY mes ORDER BY mes
+    `, [from, to])
+  ]);
+  res.json({ ingresos: ingresos.rows, gastos: gastos.rows });
+});
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Orama Server running at http://localhost:${PORT}`);
