@@ -47,6 +47,15 @@ async function initDB() {
       precio NUMERIC,
       cantidad INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS gastos (
+      id SERIAL PRIMARY KEY,
+      categoria TEXT NOT NULL,
+      descripcion TEXT,
+      monto NUMERIC NOT NULL,
+      fecha DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   console.log('Database ready');
 }
@@ -61,12 +70,6 @@ app.post('/api/mesas', async (req, res) => {
   const { nombre } = req.body;
   const result = await pool.query('INSERT INTO mesas (nombre) VALUES ($1) RETURNING *', [nombre]);
   res.json(result.rows[0]);
-});
-
-// MENU
-app.get('/api/menu', async (req, res) => {
-  const result = await pool.query('SELECT * FROM menu_items WHERE activo=1 ORDER BY categoria, nombre');
-  res.json(result.rows);
 });
 
 // GET all menu items including inactive (for admin)
