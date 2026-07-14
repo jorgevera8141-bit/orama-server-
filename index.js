@@ -205,8 +205,8 @@ app.get('/api/resumen', async (req, res) => {
     SELECT 
       COUNT(*) as ordenes,
       COALESCE(SUM(total),0) as total,
-      COALESCE(SUM(CASE WHEN payment_method='efectivo' THEN amount_cash ELSE 0 END),0) as total_efectivo,
-      COALESCE(SUM(CASE WHEN payment_method='tarjeta' THEN amount_card ELSE 0 END),0) as total_tarjeta,
+      COALESCE(SUM(CASE WHEN payment_method='efectivo' THEN total ELSE 0 END),0) as total_efectivo,
+      COALESCE(SUM(CASE WHEN payment_method='tarjeta' THEN total ELSE 0 END),0) as total_tarjeta,
       COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_cash ELSE 0 END),0) as mixto_efectivo,
       COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_card ELSE 0 END),0) as mixto_tarjeta
     FROM ordenes 
