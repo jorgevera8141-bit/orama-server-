@@ -335,6 +335,18 @@ app.get('/api/staff/active', async (req, res) => {
     ORDER BY s.id, ss.login_time DESC
   `);
   res.json(result.rows);
+});app.get('/api/mesas/status', async (req, res) => {
+  const mesas = await pool.query('SELECT * FROM mesas ORDER BY id');
+  const openOrders = await pool.query(`
+    SELECT mesa_id, mesa_nombre, id, total, created_at 
+    FROM ordenes WHERE status='abierta'
+  `);
+  const result = mesas.rows.map(m => ({
+    ...m,
+    ocupada: openOrders.rows.some(o => o.mesa_id === m.id),
+    orden: openOrders.rows.find(o => o.mesa_id === m.id) || null
+  }));
+  res.json(result);
 });
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
