@@ -230,6 +230,7 @@ async function loadSummary(){
 
 // ─── PAYMENT MODAL ───
 function openPayment(id,mesa,total,subtitle){
+  console.log('openPayment called with id:', id);
   currentOrdenId=id; currentTotal=total; currentMethod='efectivo';
   document.getElementById("modal-subtitle").textContent=subtitle||mesa;
   document.getElementById("modal-total").textContent="$"+total.toFixed(2);
