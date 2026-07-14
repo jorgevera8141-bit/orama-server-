@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--red:#D46B6B}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:'Georgia',serif;background:linear-gradient(135deg,#0d6b54,#1aab85);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  
+  .login-card{background:rgba(255,255,255,0.97);border-radius:24px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}
+  
+  /* Logo area */
+  .logo-area{margin-bottom:24px}
+  .logo-circle{width:80px;height:80px;background:linear-gradient(135deg,#0d6b54,#1aab85);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:36px}
+  .logo-name{font-size:28px;font-weight:700;color:var(--brown);letter-spacing:3px}
+  .logo-sub{font-size:12px;color:var(--gray);letter-spacing:2px;margin-top:4px}
+  
+  /* PIN pad */
+  .pin-display{display:flex;gap:12px;justify-content:center;margin:20px 0 24px}
+  .pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--teal);background:transparent;transition:all 0.2s}
+  .pin-dot.filled{background:var(--teal);border-color:var(--teal)}
+  
+  .pin-label{font-size:14px;color:var(--gray);margin-bottom:16px;font-family:Arial,sans-serif}
+  
+  .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .num-btn{background:#f5f5f5;border:none;border-radius:14px;padding:18px;font-size:22px;font-weight:700;color:var(--brown);cursor:pointer;font-family:'Georgia',serif;transition:all 0.15s}
+  .num-btn:active{background:var(--light);transform:scale(0.95)}
+  .num-btn.delete{background:#fbe9e9;color:var(--red);font-size:18px}
+  .num-btn.empty{background:transparent;cursor:default}
+  
+  .error-msg{color:var(--red);font-size:13px;font-family:Arial,sans-serif;margin-bottom:12px;min-height:20px}
+
+  /* Role selection */
+  .role-screen{display:none}
+  .greeting{font-size:22px;font-weight:700;color:var(--brown);margin-bottom:4px}
+  .greeting-sub{font-size:13px;color:var(--gray);font-family:Arial,sans-serif;margin-bottom:24px}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .role-btn{background:#f5f5f5;border:2px solid transparent;border-radius:14px;padding:20px 10px;text-align:center;cursor:pointer;transition:all 0.15s}
+  .role-btn:active{transform:scale(0.97);background:var(--light);border-color:var(--teal)}
+  .role-icon{font-size:28px;display:block;margin-bottom:8px}
+  .role-name{font-size:14px;font-weight:700;color:var(--brown);font-family:Arial,sans-serif}
+  .logout-btn{background:none;border:1.5px solid var(--border);border-radius:12px;padding:10px;font-size:13px;color:var(--gray);cursor:pointer;width:100%;font-family:Arial,sans-serif}
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="logo-area">
+      <div class="logo-circle">🌿</div>
+      <div class="logo-name">ORAMA</div>
+      <div class="logo-sub">CAFÉ</div>
+    </div>
+
+    <div class="pin-label">Ingresa tu PIN</div>
+    <div class="pin-display">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <div class="numpad">
+      <button class="num-btn" onclick="addPin('1')">1</button>
+      <button class="num-btn" onclick="addPin('2')">2</button>
+      <button class="num-btn" onclick="addPin('3')">3</button>
+      <button class="num-btn" onclick="addPin('4')">4</button>
+      <button class="num-btn" onclick="addPin('5')">5</button>
+      <button class="num-btn" onclick="addPin('6')">6</button>
+      <button class="num-btn" onclick="addPin('7')">7</button>
+      <button class="num-btn" onclick="addPin('8')">8</button>
+      <button class="num-btn" onclick="addPin('9')">9</button>
+      <button class="num-btn empty"></button>
+      <button class="num-btn" onclick="addPin('0')">0</button>
+      <button class="num-btn delete" onclick="deletePin()">⌫</button>
+    </div>
+  </div>
+
+  <!-- ROLE SELECTION SCREEN -->
+  <div id="role-screen" class="role-screen">
+    <div class="logo-area">
+      <div class="logo-circle">🌿</div>
+    </div>
+    <div class="greeting" id="greeting">Hola!</div>
+    <div class="greeting-sub" id="greeting-sub">¿Cuál es tu rol hoy?</div>
+    <div class="role-grid" id="role-grid"></div>
+    <button class="logout-btn" onclick="logout()">← Cambiar usuario</button>
+  </div>
+</div>
+
+<script>
+let pin = '';
+let currentStaff = null;
+
+// Greetings by name and language
+const greetings = {
+  'Jorge': { text: 'Hey Jorge! 🌿', sub: "What's your role today?", lang: 'en' },
+  'Miguel': { text: 'Hey Miguel! 👋', sub: "What's your role today?", lang: 'en' },
+  'Erika': { text: 'Bienvenida Erika ☕', sub: '¿Qué vas a hacer hoy?', lang: 'es' },
+  'Karen': { text: 'Hola Karen 👋', sub: '¿Cuál es tu rol hoy?', lang: 'es' }
+};
+
+const roles = {
+  management: [
+    { icon: '🏠', name: 'Dashboard', url: '/dashboard.html' },
+    { icon: '📊', name: 'Reportes', url: '/admin.html' },
+    { icon: '💰', name: 'Finanzas', url: '/finanzas.html' },
+    { icon: '✂️', name: 'Corte', url: '/corte.html' }
+  ],
+  staff: [
+    { icon: '💳', name: 'Cajero', url: '/cashier.html' },
+    { icon: '☕', name: 'Barista', url: '/barra.html' },
+    { icon: '🍽️', name: 'Mesero', url: '/' }
+  ]
+};
+
+function addPin(num) {
+  if(pin.length >= 4) return;
+  pin += num;
+  updateDots();
+  if(pin.length === 4) setTimeout(checkPin, 200);
+}
+
+function deletePin() {
+  pin = pin.slice(0, -1);
+  updateDots();
+  document.getElementById('error-msg').textContent = '';
+}
+
+function updateDots() {
+  for(let i = 0; i < 4; i++) {
+    document.getElementById('dot-'+i).classList.toggle('filled', i < pin.length);
+  }
+}
+
+async function checkPin() {
+  try {
+    const res = await fetch('/api/staff/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if(data.success) {
+      currentStaff = data.staff;
+      showRoleScreen();
+    } else {
+      document.getElementById('error-msg').textContent = data.message || 'PIN incorrecto';
+      pin = '';
+      updateDots();
+    }
+  } catch(e) {
+    document.getElementById('error-msg').textContent = 'Error de conexión';
+    pin = '';
+    updateDots();
+  }
+}
+
+function showRoleScreen() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('role-screen').style.display = 'block';
+
+  const g = greetings[currentStaff.nombre] || { 
+    text: 'Hola ' + currentStaff.nombre + '! 👋', 
+    sub: '¿Cuál es tu rol hoy?' 
+  };
+  document.getElementById('greeting').textContent = g.text;
+  document.getElementById('greeting-sub').textContent = g.sub;
+
+  const roleList = currentStaff.tipo === 'management' ? roles.management : roles.staff;
+  document.getElementById('role-grid').innerHTML = roleList.map(r =>
+    '<button class="role-btn" onclick="goToRole(\'' + r.url + '\',\'' + r.name + '\')">' +
+    '<span class="role-icon">' + r.icon + '</span>' +
+    '<span class="role-name">' + r.name + '</span>' +
+    '</button>'
+  ).join('');
+}
+
+async function goToRole(url, screen) {
+  // Log the session
+  await fetch('/api/staff/session', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ staff_id: currentStaff.id, screen })
+  });
+  window.location.href = url;
+}
+
+function logout() {
+  currentStaff = null;
+  pin = '';
+  updateDots();
+  document.getElementById('error-msg').textContent = '';
+  document.getElementById('login-screen').style.display = 'block';
+  document.getElementById('role-screen').style.display = 'none';
+}
+</script>
+</body>
+</html>
