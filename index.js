@@ -192,9 +192,19 @@ app.put('/api/ordenes/:id/cerrar', async (req, res) => {
 
 // SUMMARY
 app.get('/api/resumen', async (req, res) => {
-  const result = await pool.query(
-    "SELECT COUNT(*) as ordenes, COALESCE(SUM(total),0) as total FROM ordenes WHERE status='cerrada' AND DATE(created_at)=CURRENT_DATE"
-  );
+  const { from, to, date } = req.query;
+  const filterDate = date || new Date().toLocaleDateString('en-CA');
+  const result = await pool.query(`
+    SELECT 
+      COUNT(*) as ordenes,
+      COALESCE(SUM(total),0) as total,
+      COALESCE(SUM(CASE WHEN payment_method='efectivo' THEN amount_cash ELSE 0 END),0) as total_efectivo,
+      COALESCE(SUM(CASE WHEN payment_method='tarjeta' THEN amount_card ELSE 0 END),0) as total_tarjeta,
+      COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_cash ELSE 0 END),0) as mixto_efectivo,
+      COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_card ELSE 0 END),0) as mixto_tarjeta
+    FROM ordenes 
+    WHERE status='cerrada' AND DATE(created_at)=$1
+  `, [filterDate]);
   res.json(result.rows[0]);
 });
 
