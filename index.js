@@ -163,8 +163,12 @@ app.post('/api/ordenes', async (req, res) => {
 });
 
 app.put('/api/ordenes/:id/cerrar', async (req, res) => {
+  const { payment_method, amount_cash, amount_card } = req.body;
   const orden = await pool.query('SELECT * FROM ordenes WHERE id=$1', [req.params.id]);
-  await pool.query("UPDATE ordenes SET status='cerrada' WHERE id=$1", [req.params.id]);
+  await pool.query(
+    "UPDATE ordenes SET status='cerrada', payment_method=$1, amount_cash=$2, amount_card=$3 WHERE id=$4",
+    [payment_method||'efectivo', amount_cash||0, amount_card||0, req.params.id]
+  );
   
   // Send ntfy notification
   const mesa = orden.rows[0]?.mesa_nombre || 'Mesa';
