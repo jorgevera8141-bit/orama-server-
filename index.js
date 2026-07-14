@@ -16,6 +16,13 @@ app.use(express.static('public'));
 app.get('/api/debug/ordenes', async (req, res) => {
   const result = await pool.query("SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card FROM ordenes WHERE status='cerrada' ORDER BY created_at DESC LIMIT 5");
   res.json(result.rows);
+});app.get('/api/ordenes/dia', async (req, res) => {
+  const date = req.query.date || new Date().toLocaleDateString('en-CA');
+  const result = await pool.query(
+    "SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card, created_at FROM ordenes WHERE status='cerrada' AND DATE(created_at)=$1 ORDER BY created_at ASC",
+    [date]
+  );
+  res.json(result.rows);
 });
 // Create tables
 async function initDB() {

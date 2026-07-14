@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Corte de Caja</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--red:#D46B6B;--amber:#E8A45A}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:20px;text-align:center}
+  .header h1{font-size:22px;font-family:Georgia,serif;letter-spacing:2px}
+  .header p{font-size:12px;opacity:0.8;margin-top:4px}
+  .content{padding:16px 16px 100px}
+  
+  /* DATE SELECTOR */
+  .date-card{background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .date-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+  .date-label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px}
+  .date-input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px;font-family:Arial,sans-serif;outline:none}
+  .date-input:focus{border-color:var(--teal)}
+  .load-btn{background:var(--teal);color:white;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+  /* SHIFT INFO */
+  .shift-card{background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .shift-title{font-size:14px;font-weight:700;color:var(--brown);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+  .shift-date{font-size:12px;color:var(--gray);font-weight:400}
+
+  /* STATS */
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0}
+  .stat-row:last-child{border-bottom:none}
+  .stat-name{font-size:13px;color:var(--gray)}
+  .stat-amount{font-size:14px;font-weight:700;color:var(--brown)}
+  .stat-row.highlight .stat-name{color:var(--brown);font-weight:600}
+  .stat-row.highlight .stat-amount{color:var(--teal);font-size:16px}
+  .stat-row.total{background:var(--light);margin:8px -16px -16px;padding:14px 16px;border-radius:0 0 12px 12px}
+  .stat-row.total .stat-name{font-size:15px;font-weight:700;color:var(--dark)}
+  .stat-row.total .stat-amount{font-size:20px;font-weight:700;color:var(--teal)}
+
+  /* PAYMENT BREAKDOWN */
+  .payment-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .payment-card{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .payment-icon{font-size:20px;margin-bottom:4px}
+  .payment-value{font-size:16px;font-weight:700;color:var(--teal)}
+  .payment-label{font-size:10px;color:var(--gray);margin-top:2px;text-transform:uppercase;letter-spacing:0.3px}
+
+  /* ORDERS LIST */
+  .orders-card{background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .orders-title{font-size:13px;font-weight:700;color:var(--brown);margin-bottom:10px}
+  .order-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px}
+  .order-row:last-child{border-bottom:none}
+  .order-mesa{color:var(--brown);font-weight:600}
+  .order-time{color:var(--gray)}
+  .order-method{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+  .method-efectivo{background:#e8f8f4;color:var(--teal)}
+  .method-tarjeta{background:#e8e8f8;color:#5b5bab}
+  .method-mixto{background:#fdf0e8;color:var(--amber)}
+  .order-total{color:var(--teal);font-weight:700}
+
+  /* CORTE BTN */
+  .corte-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px}
+  .corte-btn:active{transform:scale(0.98)}
+  .corte-btn.done{background:#e8f8f4;color:var(--teal);border:2px solid var(--teal)}
+
+  /* PRINT VIEW */
+  .print-card{background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:none}
+  .print-card.show{display:block}
+  .print-header{text-align:center;margin-bottom:12px;padding-bottom:12px;border-bottom:2px dashed var(--border)}
+  .print-title{font-size:16px;font-weight:700;color:var(--brown)}
+  .print-sub{font-size:12px;color:var(--gray);margin-top:4px}
+  .print-line{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+  .print-divider{border:none;border-top:1px dashed var(--border);margin:8px 0}
+  .print-total{display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--teal);padding:8px 0}
+  .print-footer{text-align:center;font-size:11px;color:var(--gray);margin-top:12px;padding-top:12px;border-top:2px dashed var(--border)}
+  .share-btn{width:100%;background:white;border:1.5px solid var(--teal);color:var(--teal);border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+
+  .empty{text-align:center;padding:30px;color:var(--gray);font-size:13px}
+  .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🌿 ORAMA CAFÉ</h1>
+  <p>Corte de Caja</p>
+</div>
+
+<div class="content">
+  <!-- Date selector -->
+  <div class="date-card">
+    <div class="date-row">
+      <div>
+        <span class="date-label">Fecha del corte</span>
+        <input type="date" id="corte-date" class="date-input">
+      </div>
+      <button class="load-btn" onclick="loadCorte()">Ver</button>
+    </div>
+  </div>
+
+  <div id="corte-content"><div class="spinner"></div></div>
+</div>
+
+<script>
+const today = new Date().toLocaleDateString('en-CA');
+document.getElementById('corte-date').value = today;
+
+async function loadCorte(){
+  const date = document.getElementById('corte-date').value;
+  const content = document.getElementById('corte-content');
+  content.innerHTML = '<div class="spinner"></div>';
+
+  try{
+    const [resumen, ordenes] = await Promise.all([
+      fetch('/api/resumen?date='+date).then(r=>r.json()),
+      fetch('/api/ordenes/dia?date='+date).then(r=>r.json())
+    ]);
+
+    const totalEfectivo = parseFloat(resumen.total_efectivo||0) + parseFloat(resumen.mixto_efectivo||0);
+    const totalTarjeta = parseFloat(resumen.total_tarjeta||0) + parseFloat(resumen.mixto_tarjeta||0);
+    const totalVentas = parseFloat(resumen.total||0);
+    const numOrdenes = parseInt(resumen.ordenes||0);
+    const promedio = numOrdenes > 0 ? totalVentas/numOrdenes : 0;
+
+    const fechaDisplay = new Date(date+'T12:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+    let html = '';
+
+    // Summary card
+    html += '<div class="shift-card">';
+    html += '<div class="shift-title">Resumen del día <span class="shift-date">'+fechaDisplay+'</span></div>';
+    html += '<div class="stat-row highlight"><span class="stat-name">📋 Total de órdenes</span><span class="stat-amount">'+numOrdenes+'</span></div>';
+    html += '<div class="stat-row"><span class="stat-name">📊 Promedio por orden</span><span class="stat-amount">$'+promedio.toFixed(2)+'</span></div>';
+    html += '<div class="stat-row total"><span class="stat-name">💰 Total vendido</span><span class="stat-amount">$'+totalVentas.toFixed(2)+'</span></div>';
+    html += '</div>';
+
+    // Payment breakdown
+    html += '<div class="payment-grid">';
+    html += '<div class="payment-card"><div class="payment-icon">💵</div><div class="payment-value">$'+totalEfectivo.toFixed(2)+'</div><div class="payment-label">Efectivo</div></div>';
+    html += '<div class="payment-card"><div class="payment-icon">💳</div><div class="payment-value">$'+totalTarjeta.toFixed(2)+'</div><div class="payment-label">Tarjeta</div></div>';
+    html += '<div class="payment-card"><div class="payment-icon">🧾</div><div class="payment-value">$'+totalVentas.toFixed(2)+'</div><div class="payment-label">Total</div></div>';
+    html += '</div>';
+
+    // Orders list
+    if(ordenes.length){
+      html += '<div class="orders-card">';
+      html += '<div class="orders-title">Detalle de órdenes ('+ordenes.length+')</div>';
+      ordenes.forEach(o=>{
+        const time = new Date(o.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+        html += '<div class="order-row">';
+        html += '<span class="order-mesa">'+o.mesa_nombre+'</span>';
+        html += '<span class="order-time">'+time+'</span>';
+        html += '<span class="order-method method-'+(o.payment_method||'efectivo')+'">'+( o.payment_method==='efectivo'?'Efectivo':o.payment_method==='tarjeta'?'Tarjeta':'Mixto')+'</span>';
+        html += '<span class="order-total">$'+parseFloat(o.total).toFixed(2)+'</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Print summary card
+    html += '<div class="print-card show" id="print-card">';
+    html += '<div class="print-header"><div class="print-title">🌿 ORAMA CAFÉ</div><div class="print-sub">Corte de Caja — '+fechaDisplay+'</div></div>';
+    html += '<div class="print-line"><span>Órdenes:</span><span>'+numOrdenes+'</span></div>';
+    html += '<div class="print-line"><span>Promedio:</span><span>$'+promedio.toFixed(2)+'</span></div>';
+    html += '<hr class="print-divider">';
+    html += '<div class="print-line"><span>💵 Efectivo:</span><span>$'+totalEfectivo.toFixed(2)+'</span></div>';
+    html += '<div class="print-line"><span>💳 Tarjeta:</span><span>$'+totalTarjeta.toFixed(2)+'</span></div>';
+    html += '<hr class="print-divider">';
+    html += '<div class="print-total"><span>TOTAL:</span><span>$'+totalVentas.toFixed(2)+'</span></div>';
+    html += '<div class="print-footer">Generado: '+new Date().toLocaleString('es-MX')+'</div>';
+    html += '</div>';
+
+    html += '<button class="corte-btn" onclick="compartirCorte()">📤 Compartir corte</button>';
+
+    content.innerHTML = html;
+
+    if(!numOrdenes){
+      content.innerHTML += '<div class="empty">Sin órdenes registradas para esta fecha</div>';
+    }
+
+  }catch(e){
+    content.innerHTML='<div class="empty">Error al cargar el corte</div>';
+    console.log(e);
+  }
+}
+
+function compartirCorte(){
+  const date = document.getElementById('corte-date').value;
+  const text = document.getElementById('print-card').innerText;
+  if(navigator.share){
+    navigator.share({title:'Corte de Caja — Orama Café', text});
+  } else {
+    navigator.clipboard.writeText(text).then(()=>alert('Corte copiado al portapapeles'));
+  }
+}
+
+loadCorte();
+</script>
+</body>
+</html>
