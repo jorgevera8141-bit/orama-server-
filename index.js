@@ -352,6 +352,33 @@ app.get('/api/staff/active', async (req, res) => {
     orden: openOrders.rows.find(o => o.mesa_id === m.id) || null
   }));
   res.json(result);
+});// INVENTARIO
+app.put('/api/menu/:id', async (req, res) => {
+  const { nombre, categoria, precio, activo, clave } = req.body;
+  await pool.query(
+    'UPDATE menu_items SET nombre=$1, categoria=$2, precio=$3, activo=$4, clave=$5 WHERE id=$6',
+    [nombre, categoria, precio, activo, clave, req.params.id]
+  );
+  res.json({ success: true });
+});
+
+app.delete('/api/menu/:id', async (req, res) => {
+  await pool.query('DELETE FROM menu_items WHERE id=$1', [req.params.id]);
+  res.json({ success: true });
+});
+
+app.post('/api/menu/nuevo', async (req, res) => {
+  const { nombre, categoria, precio } = req.body;
+  // Auto-generate code based on category
+  const catCode = nombre.substring(0,2).toUpperCase();
+  const count = await pool.query('SELECT COUNT(*) FROM menu_items WHERE clave LIKE $1', [catCode+'%']);
+  const nextNum = parseInt(count.rows[0].count) + 1;
+  const clave = catCode + String(nextNum).padStart(2,'0');
+  const result = await pool.query(
+    'INSERT INTO menu_items (nombre, categoria, precio, clave) VALUES ($1, $2, $3, $4) RETURNING *',
+    [nombre, categoria, precio, clave]
+  );
+  res.json(result.rows[0]);
 });
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
