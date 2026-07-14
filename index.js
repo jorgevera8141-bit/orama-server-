@@ -37,6 +37,9 @@ async function initDB() {
       mesa_nombre TEXT,
       status TEXT DEFAULT 'abierta',
       total NUMERIC DEFAULT 0,
+      payment_method TEXT DEFAULT 'efectivo',
+      amount_cash NUMERIC DEFAULT 0,
+      amount_card NUMERIC DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -57,6 +60,13 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  await pool.query(`
+    ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'efectivo';
+    ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS amount_cash NUMERIC DEFAULT 0;
+    ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS amount_card NUMERIC DEFAULT 0;
+  `).catch(() => {});
+
   console.log('Database ready');
 }
 
