@@ -85,12 +85,17 @@ async function initDB() {
       screen TEXT,
       login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       logout_time TIMESTAMP
-    );`);
+    );
+  `);
 
   await pool.query(`
     ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'efectivo';
     ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS amount_cash NUMERIC DEFAULT 0;
     ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS amount_card NUMERIC DEFAULT 0;
+  `).catch(() => {});
+
+  await pool.query(`
+    ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS clave TEXT;
   `).catch(() => {});
 
   console.log('Database ready');
