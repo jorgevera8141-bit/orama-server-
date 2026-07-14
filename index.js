@@ -293,6 +293,48 @@ app.get('/api/finanzas', async (req, res) => {
     `, [from, to])
   ]);
   res.json({ ingresos: ingresos.rows, gastos: gastos.rows });
+});// STAFF
+app.get('/api/staff', async (req, res) => {
+  const result = await pool.query('SELECT id, nombre, tipo, idioma, activo FROM staff ORDER BY tipo, nombre');
+  res.json(result.rows);
+});
+
+app.post('/api/staff', async (req, res) => {
+  const { nombre, pin, tipo, idioma } = req.body;
+  const result = await pool.query(
+    'INSERT INTO staff (nombre, pin, tipo, idioma) VALUES ($1, $2, $3, $4) RETURNING id, nombre, tipo',
+    [nombre, pin, tipo, idioma||'es']
+  );
+  res.json(result.rows[0]);
+});
+
+app.post('/api/staff/login', async (req, res) => {
+  const { pin } = req.body;
+  const result = await pool.query(
+    'SELECT id, nombre, tipo, idioma FROM staff WHERE pin=$1 AND activo=1',
+    [pin]
+  );
+  if(!result.rows.length) return res.json({ success: false, message: 'PIN incorrecto' });
+  const staff = result.rows[0];
+  await pool.query('INSERT INTO staff_sessions (staff_id, screen) VALUES ($1, $2)', [staff.id, 'login']);
+  res.json({ success: true, staff });
+});
+
+app.put('/api/staff/session', async (req, res) => {
+  const { staff_id, screen } = req.body;
+  await pool.query('INSERT INTO staff_sessions (staff_id, screen) VALUES ($1, $2)', [staff_id, screen]);
+  res.json({ success: true });
+});
+
+app.get('/api/staff/active', async (req, res) => {
+  const result = await pool.query(`
+    SELECT DISTINCT ON (s.id) s.id, s.nombre, s.tipo, ss.screen, ss.login_time
+    FROM staff s
+    JOIN staff_sessions ss ON ss.staff_id = s.id
+    WHERE ss.login_time > NOW() - INTERVAL '12 hours'
+    ORDER BY s.id, ss.login_time DESC
+  `);
+  res.json(result.rows);
 });
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
