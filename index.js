@@ -69,7 +69,23 @@ async function initDB() {
       fecha DATE NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `);
+  CREATE TABLE IF NOT EXISTS staff (
+      id SERIAL PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      pin TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      idioma TEXT DEFAULT 'es',
+      activo INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS staff_sessions (
+      id SERIAL PRIMARY KEY,
+      staff_id INTEGER,
+      screen TEXT,
+      login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      logout_time TIMESTAMP
+    );`);
 
   await pool.query(`
     ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'efectivo';
