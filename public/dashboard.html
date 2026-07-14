@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Dashboard</title>
+<style>
+  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--red:#D46B6B;--amber:#E8A45A}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto;min-height:100vh;position:relative}
+  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;opacity:0.04;background-image:url('/logo.png');background-size:contain;background-repeat:no-repeat;background-position:center;pointer-events:none;z-index:0}
+  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1}
+  .header-left h1{font-size:18px;font-family:Georgia,serif;letter-spacing:2px}
+  .header-left p{font-size:11px;opacity:0.8;margin-top:2px}
+  .header-right{display:flex;align-items:center;gap:10px}
+  .user-badge{background:rgba(255,255,255,0.2);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700}
+  .logout-btn{background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:32px;height:32px;color:white;font-size:14px;cursor:pointer}
+  .nav{background:white;border-bottom:2px solid var(--border);display:flex;overflow-x:auto;position:relative;z-index:1}
+  .nav-btn{flex-shrink:0;padding:10px 14px;font-size:12px;font-weight:700;color:var(--gray);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .nav-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+  .content{padding:12px 16px 100px;position:relative;z-index:1}
+  .tab-content{display:none}
+  .tab-content.active{display:block}
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .stat-card{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .stat-value{font-size:20px;font-weight:700;color:var(--teal)}
+  .stat-label{font-size:10px;color:var(--gray);margin-top:2px;text-transform:uppercase;letter-spacing:0.3px}
+  .section-title{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px;display:flex;justify-content:space-between;align-items:center}
+  .refresh-small{background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;font-weight:700}
+  .mesa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .mesa-card{background:white;border-radius:12px;padding:12px 8px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08);cursor:pointer;border:2px solid transparent;transition:all 0.2s;position:relative}
+  .mesa-card.ocupada{background:linear-gradient(135deg,#fff8e8,#fff3d0);border-color:var(--amber)}
+  .mesa-card:active{transform:scale(0.97)}
+  .mesa-nombre{font-size:13px;font-weight:700;color:var(--brown)}
+  .mesa-status{font-size:10px;margin-top:4px;font-weight:600}
+  .mesa-status.libre{color:var(--teal)}
+  .mesa-status.ocupada{color:var(--amber)}
+  .mesa-total{font-size:12px;font-weight:700;color:var(--amber);margin-top:2px}
+  .mesa-time{font-size:10px;color:var(--gray);margin-top:1px}
+  .mesa-dot{width:8px;height:8px;border-radius:50%;position:absolute;top:8px;right:8px}
+  .mesa-dot.libre{background:#c8f0e0}
+  .mesa-dot.ocupada{background:var(--amber)}
+  .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center}
+  .modal-overlay.open{display:flex}
+  .modal{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:70vh;overflow-y:auto}
+  .modal-mesa{font-size:20px;font-weight:700;color:var(--brown);margin-bottom:4px}
+  .modal-time{font-size:12px;color:var(--gray);margin-bottom:16px}
+  .modal-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
+  .modal-total{display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--teal);padding:12px 0 0;border-top:2px solid var(--border);margin-top:8px}
+  .close-modal-btn{width:100%;background:none;border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;color:var(--gray);cursor:pointer;margin-top:12px}
+  .quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  .quick-card{background:white;border-radius:14px;padding:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08);cursor:pointer;text-decoration:none;display:block;transition:all 0.15s}
+  .quick-card:active{transform:scale(0.97);background:var(--light)}
+  .quick-icon{font-size:28px;display:block;margin-bottom:8px}
+  .quick-name{font-size:13px;font-weight:700;color:var(--brown)}
+  .quick-sub{font-size:11px;color:var(--gray);margin-top:2px}
+  .product-row{background:white;border-radius:10px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center}
+  .product-name{font-size:13px;color:var(--brown);font-weight:600;flex:1}
+  .product-qty{background:var(--light);color:var(--teal);border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:8px}
+  .product-total{font-size:13px;font-weight:700;color:var(--teal)}
+  .empty{text-align:center;padding:30px;color:var(--gray);font-size:13px}
+  .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .live-dot{width:7px;height:7px;background:#1aab85;border-radius:50%;display:inline-block;animation:pulse 2s infinite;margin-right:4px}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+</style>
+</head>
+<body>
+<div class="watermark"></div>
+<div class="header">
+  <div class="header-left">
+    <h1>🌿 ORAMA CAFE</h1>
+    <p id="header-date"></p>
+  </div>
+  <div class="header-right">
+    <span class="user-badge" id="user-badge">Admin</span>
+    <button class="logout-btn" onclick="window.location.href='/login.html'" title="Cerrar sesion">&#9211;</button>
+  </div>
+</div>
+<div class="nav">
+  <button class="nav-btn active" onclick="showTab('inicio',this)">🏠 Inicio</button>
+  <button class="nav-btn" onclick="showTab('ventas',this)">🛒 Ventas</button>
+  <button class="nav-btn" onclick="showTab('reportes',this)">📊 Reportes</button>
+  <button class="nav-btn" onclick="showTab('inventario',this)">📦 Inventario</button>
+  <button class="nav-btn" onclick="showTab('personal',this)">👥 Personal</button>
+  <button class="nav-btn" onclick="showTab('finanzas',this)">💰 Finanzas</button>
+</div>
+<div class="content">
+  <div id="tab-inicio" class="tab-content active">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value" id="stat-ordenes">-</div><div class="stat-label">Ordenes hoy</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-ventas">-</div><div class="stat-label">Ventas hoy</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-activas">-</div><div class="stat-label">Mesas activas</div></div>
+    </div>
+    <div class="section-title">
+      <span><span class="live-dot"></span>Mesas en tiempo real</span>
+      <button class="refresh-small" onclick="loadMesas()">↻ Actualizar</button>
+    </div>
+    <div class="mesa-grid" id="mesa-grid"><div class="spinner"></div></div>
+    <div class="section-title">Mas vendido hoy</div>
+    <div id="top-products"><div class="spinner"></div></div>
+  </div>
+  <div id="tab-ventas" class="tab-content">
+    <div class="quick-grid">
+      <a class="quick-card" href="/"><span class="quick-icon">🍽️</span><span class="quick-name">Nueva orden</span><span class="quick-sub">Mesa + menu</span></a>
+      <a class="quick-card" href="/cashier.html"><span class="quick-icon">💳</span><span class="quick-name">Caja</span><span class="quick-sub">Cobrar ordenes</span></a>
+      <a class="quick-card" href="/barra.html"><span class="quick-icon">☕</span><span class="quick-name">Barra</span><span class="quick-sub">Vista barista</span></a>
+      <a class="quick-card" href="/corte.html"><span class="quick-icon">✂️</span><span class="quick-name">Corte de caja</span><span class="quick-sub">Resumen turno</span></a>
+    </div>
+  </div>
+  <div id="tab-reportes" class="tab-content">
+    <div class="quick-grid">
+      <a class="quick-card" href="/admin.html"><span class="quick-icon">📊</span><span class="quick-name">Ventas</span><span class="quick-sub">Por fecha y categoria</span></a>
+      <a class="quick-card" href="/finanzas.html"><span class="quick-icon">💰</span><span class="quick-name">Finanzas</span><span class="quick-sub">Ingresos vs gastos</span></a>
+      <a class="quick-card" href="/corte.html"><span class="quick-icon">🧾</span><span class="quick-name">Cortes</span><span class="quick-sub">Historial de turnos</span></a>
+    </div>
+  </div>
+  <div id="tab-inventario" class="tab-content">
+    <div class="empty">📦 Inventario proximamente</div>
+  </div>
+  <div id="tab-personal" class="tab-content">
+    <div class="section-title">Activos ahora</div>
+    <div id="active-staff"><div class="spinner"></div></div>
+  </div>
+  <div id="tab-finanzas" class="tab-content">
+    <div class="quick-grid">
+      <a class="quick-card" href="/finanzas.html"><span class="quick-icon">📈</span><span class="quick-name">P&L</span><span class="quick-sub">Ingresos y gastos</span></a>
+      <a class="quick-card" href="/corte.html"><span class="quick-icon">✂️</span><span class="quick-name">Corte de caja</span><span class="quick-sub">Resumen del dia</span></a>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="mesa-modal">
+  <div class="modal">
+    <div class="modal-mesa" id="modal-mesa-name">Mesa 1</div>
+    <div class="modal-time" id="modal-mesa-time"></div>
+    <div id="modal-items"></div>
+    <button class="close-modal-btn" onclick="document.getElementById('mesa-modal').classList.remove('open')">Cerrar</button>
+  </div>
+</div>
+<script>
+const now=new Date();
+document.getElementById('header-date').textContent=now.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+
+function showTab(tab,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='inicio') loadInicio();
+  if(tab==='personal') loadActiveStaff();
+}
+
+async function loadInicio(){
+  await Promise.all([loadStats(),loadMesas(),loadTopProducts()]);
+}
+
+async function loadStats(){
+  try{
+    const res=await fetch('/api/resumen');
+    const data=await res.json();
+    document.getElementById('stat-ordenes').textContent=data.ordenes||0;
+    document.getElementById('stat-ventas').textContent='$'+parseFloat(data.total||0).toFixed(0);
+  }catch(e){}
+}
+
+async function loadMesas(){
+  try{
+    const res=await fetch('/api/mesas/status');
+    const mesas=await res.json();
+    const activas=mesas.filter(m=>m.ocupada).length;
+    document.getElementById('stat-activas').textContent=activas;
+    document.getElementById('mesa-grid').innerHTML=mesas.map(m=>{
+      const status=m.ocupada?'ocupada':'libre';
+      const time=m.orden?new Date(m.orden.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}):'';
+      const total=m.orden?'$'+parseFloat(m.orden.total).toFixed(0):'';
+      return '<div class="mesa-card '+status+'" onclick="'+(m.ocupada?'openMesa('+m.orden.id+',\''+m.nombre+'\',\''+time+'\')':'')+'">'+
+        '<div class="mesa-dot '+status+'"></div>'+
+        '<div class="mesa-nombre">'+m.nombre+'</div>'+
+        '<div class="mesa-status '+status+'">'+(m.ocupada?'Ocupada':'Libre')+'</div>'+
+        (total?'<div class="mesa-total">'+total+'</div>':'')+
+        (time?'<div class="mesa-time">desde '+time+'</div>':'')+
+        '</div>';
+    }).join('');
+  }catch(e){document.getElementById('mesa-grid').innerHTML='<div class="empty">Error al cargar</div>';}
+}
+
+async function loadTopProducts(){
+  try{
+    const today=new Date().toLocaleDateString('en-CA');
+    const res=await fetch('/api/reportes?from='+today+'&to='+today);
+    const data=await res.json();
+    const orders=data.orders||[];
+    const itemCounts={};
+    for(const o of orders.slice(0,20)){
+      const ir=await fetch('/api/ordenes/'+o.id+'/items');
+      const items=await ir.json();
+      items.forEach(i=>{
+        if(!itemCounts[i.item_nombre]) itemCounts[i.item_nombre]={qty:0,total:0};
+        itemCounts[i.item_nombre].qty+=i.cantidad;
+        itemCounts[i.item_nombre].total+=parseFloat(i.precio)*i.cantidad;
+      });
+    }
+    const sorted=Object.entries(itemCounts).sort((a,b)=>b[1].qty-a[1].qty).slice(0,8);
+    if(!sorted.length){document.getElementById('top-products').innerHTML='<div class="empty">Sin ventas hoy</div>';return;}
+    document.getElementById('top-products').innerHTML=sorted.map(([name,d])=>
+      '<div class="product-row"><span class="product-name">'+name+'</span><span class="product-qty">x'+d.qty+'</span><span class="product-total">$'+d.total.toFixed(0)+'</span></div>'
+    ).join('');
+  }catch(e){document.getElementById('top-products').innerHTML='<div class="empty">Sin datos</div>';}
+}
+
+async function openMesa(ordenId,mesa,time){
+  try{
+    const res=await fetch('/api/ordenes/'+ordenId+'/items');
+    const items=await res.json();
+    document.getElementById('modal-mesa-name').textContent=mesa;
+    document.getElementById('modal-mesa-time').textContent='Desde las '+time;
+    document.getElementById('modal-items').innerHTML=items.map(i=>
+      '<div class="modal-item"><span>x'+i.cantidad+' '+i.item_nombre+'</span><span>$'+(parseFloat(i.precio)*i.cantidad).toFixed(2)+'</span></div>'
+    ).join('')+'<div class="modal-total"><span>Total</span><span>$'+items.reduce((s,i)=>s+parseFloat(i.precio)*i.cantidad,0).toFixed(2)+'</span></div>';
+    document.getElementById('mesa-modal').classList.add('open');
+  }catch(e){}
+}
+
+async function loadActiveStaff(){
+  try{
+    const res=await fetch('/api/staff/active');
+    const staff=await res.json();
+    const list=document.getElementById('active-staff');
+    if(!staff.length){list.innerHTML='<div class="empty">Sin personal activo</div>';return;}
+    list.innerHTML=staff.map(s=>
+      '<div class="product-row"><span class="product-name">'+s.nombre+'</span><span class="product-qty">'+s.screen+'</span><span style="font-size:11px;color:var(--gray)">'+new Date(s.login_time).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+'</span></div>'
+    ).join('');
+  }catch(e){document.getElementById('active-staff').innerHTML='<div class="empty">Error al cargar</div>';}
+}
+
+loadInicio();
+setInterval(loadMesas,30000);
+</script>
+</body>
+</html>
