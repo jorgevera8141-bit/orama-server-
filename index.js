@@ -13,7 +13,10 @@ const pool = new Pool({
 
 app.use(express.json());
 app.use(express.static('public'));
-
+app.get('/api/debug/ordenes', async (req, res) => {
+  const result = await pool.query("SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card FROM ordenes WHERE status='cerrada' ORDER BY created_at DESC LIMIT 5");
+  res.json(result.rows);
+});
 // Create tables
 async function initDB() {
   await pool.query(`
