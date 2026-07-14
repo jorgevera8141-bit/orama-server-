@@ -289,7 +289,18 @@ async function confirmarPago(){
     if(ef+ta<currentTotal){alert("La suma no cubre el total");return;}
   }
   if(currentOrdenId){
-    await fetch("/api/ordenes/"+currentOrdenId+"/cerrar",{method:"PUT"});
+    let amount_cash=0, amount_card=0;
+    if(currentMethod==='efectivo') amount_cash=currentTotal;
+    else if(currentMethod==='tarjeta') amount_card=currentTotal;
+    else if(currentMethod==='mixto'){
+      amount_cash=parseFloat(document.getElementById('mixto-efectivo')?.value)||0;
+      amount_card=parseFloat(document.getElementById('mixto-tarjeta')?.value)||0;
+    }
+    await fetch("/api/ordenes/"+currentOrdenId+"/cerrar",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({payment_method:currentMethod, amount_cash, amount_card})
+    });
   }
   closePaymentModal();
   loadAll();
