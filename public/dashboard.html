@@ -130,6 +130,9 @@
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <input type="text" id="inv-search" class="field-input" placeholder="Buscar producto o código..." oninput="filterInventario(this.value)" style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none">
       <button onclick="showAddProduct()" style="background:var(--teal);color:white;border:none;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Nuevo</button>
+    </div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button onclick="exportProductosCSV()" style="background:white;border:1.5px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">📥 Excel Productos</button>
+      <button onclick="exportInventarioCSV()" style="background:white;border:1.5px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">📥 Excel Inventario</button>
     </div>
 
     <!-- Add/Edit form -->
@@ -285,7 +288,27 @@ async function deleteProduct(id){
   await fetch('/api/menu/'+id,{method:'DELETE'});
   loadInventario();
 }
+function exportCSV(filename, headers, rows){
+  const csv = [headers.join(','), ...rows.map(r=>r.map(v=>'"'+(v||'')+'\"').join(','))].join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
+function exportProductosCSV(){
+  const headers = ['Clave','Nombre','Categoria','Precio','Activo'];
+  const rows = allProducts.map(p=>[p.clave||'',p.nombre,p.categoria,parseFloat(p.precio).toFixed(2),p.activo?'Si':'No']);
+  exportCSV('orama_productos_'+new Date().toLocaleDateString('en-CA')+'.csv', headers, rows);
+}
+
+function exportInventarioCSV(){
+  const headers = ['Clave','Nombre','Categoria','Precio','Estado'];
+  const activos = allProducts.filter(p=>p.activo);
+  const rows = activos.map(p=>[p.clave||'',p.nombre,p.categoria,parseFloat(p.precio).toFixed(2),'Activo']);
+  exportCSV('orama_inventario_'+new Date().toLocaleDateString('en-CA')+'.csv', headers, rows);
+}
 async function loadInicio(){
   await Promise.all([loadStats(),loadMesas(),loadTopProducts()]);
 }
