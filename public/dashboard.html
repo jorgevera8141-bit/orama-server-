@@ -234,7 +234,9 @@ function showTab(tab,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
+  if(tab==='inicio') loadInicio();
   if(tab==='personal'){ loadActiveStaff(); loadStaffList(); }
+  if(tab==='inventario') loadInventario();
 }
 
 async function loadStaffList(){
@@ -307,8 +309,6 @@ async function toggleStaff(id, current){
     body:JSON.stringify({activo: current ? 0 : 1})
   });
   loadStaffList();
-}
-  if(tab==='inventario') loadInventario();
 }
 
 async function loadInventario(){
