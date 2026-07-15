@@ -174,6 +174,40 @@
   <div id="tab-personal" class="tab-content">
     <div class="section-title">Activos ahora</div>
     <div id="active-staff"><div class="spinner"></div></div>
+
+    <div class="section-title" style="margin-top:16px">
+      <span>Personal registrado</span>
+      <button onclick="showStaffForm()" style="background:var(--teal);color:white;border:none;border-radius:10px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
+    </div>
+
+    <!-- Add/Edit staff form -->
+    <div id="staff-form" style="display:none;background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+      <div style="font-size:14px;font-weight:700;color:var(--brown);margin-bottom:12px" id="staff-form-title">Nuevo empleado</div>
+      <input type="hidden" id="staff-edit-id">
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Nombre</div>
+        <input type="text" id="staff-nombre" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:Arial,sans-serif;outline:none" placeholder="Nombre del empleado">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">PIN (4 dígitos)</div>
+          <input type="number" id="staff-pin" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:Arial,sans-serif;outline:none" placeholder="1234" maxlength="4">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Tipo</div>
+          <select id="staff-tipo" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none">
+            <option value="staff">Personal</option>
+            <option value="management">Administración</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onclick="saveStaff()" style="background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">Guardar</button>
+        <button onclick="document.getElementById('staff-form').style.display='none'" style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:11px;font-size:14px;color:var(--gray);cursor:pointer">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="staff-list"><div class="spinner"></div></div>
   </div>
   <div id="tab-finanzas" class="tab-content">
     <div class="quick-grid">
@@ -200,7 +234,79 @@ function showTab(tab,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
-  if(tab==='personal') loadActiveStaff();
+  if(tab==='personal'){ loadActiveStaff(); loadStaffList(); }let allStaff = [];
+
+async function loadStaffList(){
+  try{
+    const res = await fetch('/api/staff');
+    allStaff = await res.json();
+    document.getElementById('staff-list').innerHTML = allStaff.map(s=>
+      '<div class="product-row">'+
+      '<div style="flex:1">'+
+      '<div class="product-name">'+s.nombre+'</div>'+
+      '<div style="font-size:11px;color:var(--gray);margin-top:2px">'+(s.tipo==='management'?'👑 Administración':'👤 Personal')+'</div>'+
+      '</div>'+
+      '<button onclick="editStaff('+s.id+')" style="background:var(--light);border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--teal);cursor:pointer;margin-right:6px">✏️ PIN</button>'+
+      '<button onclick="toggleStaff('+s.id+','+s.activo+')" style="background:'+(s.activo?'#fbe9e9':'#e8f8f4')+';border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:'+(s.activo?'var(--red)':'var(--teal)')+';cursor:pointer">'+(s.activo?'Desactivar':'Activar')+'</button>'+
+      '</div>'
+    ).join('');
+  }catch(e){document.getElementById('staff-list').innerHTML='<div class="empty">Error al cargar</div>';}
+}
+
+function showStaffForm(){
+  document.getElementById('staff-form-title').textContent='Nuevo empleado';
+  document.getElementById('staff-edit-id').value='';
+  document.getElementById('staff-nombre').value='';
+  document.getElementById('staff-pin').value='';
+  document.getElementById('staff-tipo').value='staff';
+  document.getElementById('staff-form').style.display='block';
+}
+
+function editStaff(id){
+  const s = allStaff.find(s=>s.id===id);
+  if(!s) return;
+  document.getElementById('staff-form-title').textContent='Editar — '+s.nombre;
+  document.getElementById('staff-edit-id').value=id;
+  document.getElementById('staff-nombre').value=s.nombre;
+  document.getElementById('staff-pin').value='';
+  document.getElementById('staff-tipo').value=s.tipo;
+  document.getElementById('staff-form').style.display='block';
+}
+
+async function saveStaff(){
+  const id = document.getElementById('staff-edit-id').value;
+  const nombre = document.getElementById('staff-nombre').value.trim();
+  const pin = document.getElementById('staff-pin').value.trim();
+  const tipo = document.getElementById('staff-tipo').value;
+  if(!nombre){alert('Ingresa el nombre');return;}
+  if(!id && !pin){alert('Ingresa un PIN');return;}
+  if(pin && pin.length !== 4){alert('El PIN debe tener 4 dígitos');return;}
+
+  if(id){
+    await fetch('/api/staff/'+id, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nombre, pin:pin||undefined, tipo})
+    });
+  } else {
+    await fetch('/api/staff', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nombre, pin, tipo, idioma:'es'})
+    });
+  }
+  document.getElementById('staff-form').style.display='none';
+  loadStaffList();
+}
+
+async function toggleStaff(id, current){
+  await fetch('/api/staff/'+id, {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({activo: current ? 0 : 1})
+  });
+  loadStaffList();
+}
   if(tab==='inventario') loadInventario();
 }
 

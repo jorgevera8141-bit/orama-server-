@@ -23,6 +23,16 @@ app.get('/api/debug/ordenes', async (req, res) => {
     [date]
   );
   res.json(result.rows);
+});app.put('/api/staff/:id', async (req, res) => {
+  const { nombre, pin, tipo, idioma, activo } = req.body;
+  if(pin){
+    await pool.query('UPDATE staff SET nombre=$1, pin=$2, tipo=$3, activo=COALESCE($4,activo) WHERE id=$5',
+      [nombre, pin, tipo, activo, req.params.id]);
+  } else {
+    await pool.query('UPDATE staff SET nombre=$1, tipo=$2, activo=COALESCE($3,activo) WHERE id=$4',
+      [nombre, tipo, activo, req.params.id]);
+  }
+  res.json({ success: true });
 });
 // Create tables
 async function initDB() {
