@@ -134,10 +134,12 @@
     <div class="modal-subtitle" id="modal-subtitle">Mesa 1</div>
     <div class="modal-title">Total a cobrar</div>
     <div class="modal-total" id="modal-total">$0.00</div>
-    <div class="pay-methods">
+    <div class="pay-methods" style="grid-template-columns:repeat(5,1fr)">
       <div class="pay-method selected" onclick="selectMethod('efectivo')"><span class="pay-method-icon">💵</span>Efectivo</div>
       <div class="pay-method" onclick="selectMethod('tarjeta')"><span class="pay-method-icon">💳</span>Tarjeta</div>
       <div class="pay-method" onclick="selectMethod('mixto')"><span class="pay-method-icon">🔀</span>Mixto</div>
+      <div class="pay-method" onclick="selectMethod('cortesia')"><span class="pay-method-icon">🎁</span>Cortesía</div>
+      <div class="pay-method" onclick="selectMethod('cliente_frecuente')"><span class="pay-method-icon">⭐</span>Frecuente</div>
     </div>
     <div id="payment-fields"></div>
     <button class="confirm-btn" onclick="confirmarPago()">✅ Confirmar cobro</button>

@@ -135,10 +135,12 @@
     <div class="modal-subtitle" id="modal-subtitle">Mesa 1</div>
     <div class="modal-title">Total a cobrar</div>
     <div class="modal-total" id="modal-total">$0.00</div>
-    <div class="pay-methods">
+    <div class="pay-methods" style="grid-template-columns:repeat(5,1fr)">
       <div class="pay-method selected" onclick="selectMethod('efectivo')"><span class="pay-method-icon">💵</span>Efectivo</div>
       <div class="pay-method" onclick="selectMethod('tarjeta')"><span class="pay-method-icon">💳</span>Tarjeta</div>
       <div class="pay-method" onclick="selectMethod('mixto')"><span class="pay-method-icon">🔀</span>Mixto</div>
+      <div class="pay-method" onclick="selectMethod('cortesia')"><span class="pay-method-icon">🎁</span>Cortesía</div>
+      <div class="pay-method" onclick="selectMethod('cliente_frecuente')"><span class="pay-method-icon">⭐</span>Frecuente</div>
     </div>
     <div id="payment-fields"></div>
     <button class="confirm-btn" onclick="confirmarPago()">✅ Confirmar cobro</button>
@@ -247,7 +249,7 @@ function closePaymentModal(){
 
 function selectMethod(method){
   currentMethod=method;
-  const methods=['efectivo','tarjeta','mixto'];
+  const methods=['efectivo','tarjeta','mixto','cortesia','cliente_frecuente'];
   document.querySelectorAll(".pay-method").forEach((m,i)=>m.classList.toggle("selected",methods[i]===method));
   renderPaymentFields();
 }
@@ -260,6 +262,12 @@ function renderPaymentFields(){
     fields.innerHTML='<div style="background:var(--light);border-radius:10px;padding:14px;text-align:center;margin-bottom:12px"><span style="font-size:13px;color:var(--teal);font-weight:600">Cobrar $'+currentTotal.toFixed(2)+' con tarjeta</span></div>';
   } else if(currentMethod==='mixto'){
     fields.innerHTML='<div class="split-row"><div class="field-group"><label class="field-label">Efectivo</label><input type="number" class="field-input" id="mixto-efectivo" placeholder="$0.00" oninput="calcMixto()" step="0.01"></div><div class="field-group"><label class="field-label">Tarjeta</label><input type="number" class="field-input" id="mixto-tarjeta" placeholder="$0.00" oninput="calcMixto()" step="0.01"></div></div><div class="cambio-display"><div class="cambio-label">Restante / Cambio</div><div class="cambio-value" id="mixto-restante">$0.00</div></div>';
+  } else if(currentMethod==='cortesia'){
+    fields.innerHTML='<div class="field-group"><label class="field-label">Motivo (opcional)</label><input type="text" class="field-input" id="cortesia-nota" placeholder="Ej. Error en orden, cliente especial..."></div><div style="background:#e8f8f4;border-radius:10px;padding:14px;text-align:center;margin-bottom:12px"><span style="font-size:13px;color:var(--teal);font-weight:600">Orden sin cargo - Cortesía</span></div>';
+  } else if(currentMethod==='cliente_frecuente'){
+    fields.innerHTML='<div class="field-group"><label class="field-label">Producto cortesía</label><input type="text" class="field-input" id="frecuente-producto" placeholder="Ej. Espresso, Café Americano..."></div><div style="background:#fff8e8;border-radius:10px;padding:14px;text-align:center;margin-bottom:12px"><span style="font-size:13px;color:var(--amber);font-weight:600">Tarjeta cliente frecuente - Sin cargo</span></div>';
+  } else {
+    fields.innerHTML='';
   }
 }
 
@@ -301,7 +309,13 @@ async function confirmarPago(){
     await fetch("/api/ordenes/"+currentOrdenId+"/cerrar",{
       method:"PUT",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({payment_method:currentMethod, amount_cash, amount_card})
+      body:JSON.stringify({
+        payment_method:currentMethod,
+        amount_cash,
+        amount_card,
+        notas: currentMethod==='cortesia' ? (document.getElementById('cortesia-nota')?.value||'') :
+               currentMethod==='cliente_frecuente' ? (document.getElementById('frecuente-producto')?.value||'') : ''
+      })
     });
   }
   closePaymentModal();
