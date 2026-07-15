@@ -234,7 +234,8 @@ function showTab(tab,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   btn.classList.add('active');
-  if(tab==='personal'){ loadActiveStaff(); loadStaffList(); }let allStaff = [];
+  if(tab==='personal'){ loadActiveStaff(); loadStaffList(); }
+  let allStaff = [];
 
 async function loadStaffList(){
   try{
