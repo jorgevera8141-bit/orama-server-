@@ -34,6 +34,16 @@ app.get('/api/debug/ordenes', async (req, res) => {
   }
   res.json({ success: true });
 });
+
+app.put('/api/ordenes/:id/cancelar', async (req, res) => {
+  const { motivo } = req.body || {};
+  await pool.query(
+    "UPDATE ordenes SET status='cancelada', notas=$1 WHERE id=$2",
+    [motivo||'', req.params.id]
+  );
+  res.json({ success: true });
+});
+
 // Create tables
 async function initDB() {
   await pool.query(`
