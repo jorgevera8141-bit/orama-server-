@@ -27,6 +27,8 @@
   .split-btn{background:#f0f7f4;color:var(--teal);border:1.5px solid var(--teal);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer}
   .empty{text-align:center;padding:40px;color:var(--gray)}
   .refresh-btn{background:rgba(255,255,255,0.2);border:none;border-radius:20px;padding:6px 14px;color:white;font-size:12px;cursor:pointer;margin-top:8px}
+  .tab-btn{flex:1;padding:10px;font-size:13px;font-weight:700;color:var(--gray);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent}
+  .tab-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
   .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -126,8 +128,12 @@
     <div class="summary-label">Ventas hoy</div>
   </div>
 </div>
-<div class="section-title">Ordenes activas</div>
+<div style="display:flex;background:white;border-bottom:2px solid var(--border);margin-bottom:8px">
+  <button class="tab-btn active" id="tab-activas" onclick="showCashierTab('activas')">Activas</button>
+  <button class="tab-btn" id="tab-hoy" onclick="showCashierTab('hoy')">Hoy</button>
+</div>
 <div id="orders-list"><div class="spinner"></div></div>
+<div id="orders-hoy" style="display:none;padding:0 0 100px"></div>
 
 <!-- PAYMENT MODAL -->
 <div class="modal-overlay" id="payment-modal">
@@ -471,6 +477,32 @@ async function closeSplitOrder(){
   await fetch("/api/ordenes/"+splitOrdenId+"/cerrar",{method:"PUT"});
   closeSplit();
   loadAll();
+}
+
+function showCashierTab(tab){
+  document.getElementById('orders-list').style.display=tab==='activas'?'block':'none';
+  document.getElementById('orders-hoy').style.display=tab==='hoy'?'block':'none';
+  document.getElementById('tab-activas').classList.toggle('active',tab==='activas');
+  document.getElementById('tab-hoy').classList.toggle('active',tab==='hoy');
+  if(tab==='hoy') loadOrdersHoy();
+}
+
+async function loadOrdersHoy(){
+  const list=document.getElementById('orders-hoy');
+  list.innerHTML='<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+  try{
+    const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Mexico_City'});
+    const res=await fetch('/api/ordenes/dia?date='+today);
+    const orders=await res.json();
+    if(!orders.length){list.innerHTML='<div class="empty">Sin ordenes cerradas hoy</div>';return;}
+    list.innerHTML=orders.map(o=>
+      '<div class="order-card" style="border-left-color:'+(o.payment_method==='cortesia'||o.payment_method==='cliente_frecuente'?'var(--amber)':'var(--teal)')+'">'+
+      '<div class="order-header"><span class="order-mesa">'+o.mesa_nombre+'</span><span class="order-total">$'+parseFloat(o.total).toFixed(2)+'</span></div>'+
+      '<div class="order-time">'+new Date(o.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+' · '+(o.payment_method==='efectivo'?'Efectivo':o.payment_method==='tarjeta'?'Tarjeta':o.payment_method==='mixto'?'Mixto':o.payment_method==='cortesia'?'Cortesia':'Frecuente')+'</div>'+
+      (o.notas?'<div style="font-size:11px;color:var(--gray);font-style:italic;margin-top:4px">'+o.notas+'</div>':'')+
+      '</div>'
+    ).join('');
+  }catch(e){list.innerHTML='<div class="empty">Error al cargar</div>';}
 }
 
 loadAll();
