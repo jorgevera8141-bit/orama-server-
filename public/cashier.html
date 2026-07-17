@@ -213,8 +213,10 @@ async function loadOrders(){
       html+="<div class='order-header'><span class='order-mesa'>"+o.mesa_nombre+"</span><span class='order-total'>$"+parseFloat(o.total).toFixed(2)+"</span></div>";
       html+="<div class='order-time'>"+new Date(o.created_at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})+"</div>";
       html+="<div class='order-items'>"+items.map(i=>"x"+i.cantidad+" "+i.item_nombre).join("<br>")+"</div>";
-      html+="<div class='btn-row'>";
+      html+="<div class='btn-row' style='grid-template-columns:1fr 1fr 1fr'>";
       html+="<button class='pay-btn' onclick='openPayment("+o.id+",\""+o.mesa_nombre+"\","+parseFloat(o.total)+")'>💳 Cobrar</button>";
+      html+="<button class='split-btn' onclick='openSplit("+o.id+",\""+o.mesa_nombre+"\","+parseFloat(o.total)+")'>✂️ Dividir</button>";
+      html+="<button onclick='cancelarOrden("+o.id+")' style='background:#fbe9e9;color:var(--red);border:1.5px solid var(--red);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer'>❌ Cancelar</button>";
       html+="<button class='split-btn' onclick='openSplit("+o.id+",\""+o.mesa_nombre+"\","+parseFloat(o.total)+")'>✂️ Dividir</button>";
       html+="</div></div>";
     }
@@ -455,7 +457,16 @@ function payPerson(personId,subtotal){
   const person=persons.find(p=>p.id===personId);
   openPayment(null, person.name, subtotal, person.name+" — $"+subtotal.toFixed(2));
 }
-
+async function cancelarOrden(id){
+  const motivo = prompt('Motivo de cancelación (opcional):');
+  if(motivo === null) return; // user pressed Cancel on prompt
+  await fetch('/api/ordenes/'+id+'/cancelar', {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({motivo})
+  });
+  loadAll();
+}
 async function closeSplitOrder(){
   await fetch("/api/ordenes/"+splitOrdenId+"/cerrar",{method:"PUT"});
   closeSplit();
