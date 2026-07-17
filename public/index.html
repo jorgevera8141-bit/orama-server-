@@ -87,6 +87,7 @@
     </div>
     <div class="cart-items" id="cart-items"></div>
     <button class="cart-btn" id="order-btn" disabled onclick="submitOrder()">Ordenar</button>
+    <button onclick="cancelarCarrito()" id="cancel-btn" style="display:none;width:calc(100% - 32px);margin:0 16px 8px;background:none;border:1.5px solid var(--red);border-radius:12px;padding:11px;font-size:14px;font-weight:700;color:var(--red);cursor:pointer">❌ Cancelar orden</button>
   </div>
 </div>
 
@@ -187,6 +188,14 @@ function updateCart(){
     '<button class="remove-btn" onclick="removeFromCart('+i.id+')">−</button>'+
     '</div>'
   ).join("")||'<div style="padding:10px;color:var(--gray);font-size:12px;text-align:center">Carrito vacío</div>';
+}
+
+function cancelarCarrito(){
+  if(!confirm('¿Cancelar la orden?')) return;
+  cart=[];
+  updateCart();
+  document.getElementById('cancel-btn').style.display='none';
+  changeMesa();
 }
 
 async function submitOrder(){
