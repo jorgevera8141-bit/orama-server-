@@ -179,7 +179,6 @@ function updateCart(){
   document.getElementById('cancel-btn').style.display=cart.length>0?'block':'none';
   document.getElementById("cart-items").innerHTML=cart.map(i=>
     '<div class="cart-item-row">'+
-      document.getElementById('cancel-btn').style.display=cart.length>0?'block':'none';
     '<span class="cart-item-name">'+i.nombre+'</span>'+
     '<span class="cart-item-qty">x'+i.cantidad+'</span>'+
     '<span class="cart-item-price">$'+(i.precio*i.cantidad).toFixed(2)+'</span>'+

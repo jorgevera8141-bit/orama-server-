@@ -52,6 +52,8 @@
   .confirm-btn:disabled{background:#ccc}
   .cancel-modal-btn{width:100%;background:none;border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-weight:600;color:var(--gray);cursor:pointer}
   .split-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tab-btn{flex:1;padding:10px;font-size:13px;font-weight:700;color:var(--gray);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent}
+  .tab-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
 </style>
 </head>
 <body>
@@ -70,8 +72,12 @@
     <div class="summary-label">Ventas hoy</div>
   </div>
 </div>
-<div class="section-title">Ordenes activas</div>
+<div style="display:flex;background:white;border-bottom:2px solid var(--border);margin-bottom:8px">
+  <button class="tab-btn active" id="tab-activas" onclick="showCashierTab('activas')">Activas</button>
+  <button class="tab-btn" id="tab-hoy" onclick="showCashierTab('hoy')">Hoy</button>
+</div>
 <div id="orders-list"><div class="spinner"></div></div>
+<div id="orders-hoy" style="display:none;padding:0 0 100px"></div>
 
 <!-- PAYMENT MODAL -->
 <div class="modal-overlay" id="payment-modal">
@@ -108,6 +114,32 @@
 let currentOrdenId = null;
 let currentTotal = 0;
 let currentMethod = 'efectivo';
+
+function showCashierTab(tab){
+  document.getElementById('orders-list').style.display = tab==='activas' ? 'block' : 'none';
+  document.getElementById('orders-hoy').style.display = tab==='hoy' ? 'block' : 'none';
+  document.getElementById('tab-activas').classList.toggle('active', tab==='activas');
+  document.getElementById('tab-hoy').classList.toggle('active', tab==='hoy');
+  if(tab==='hoy') loadOrdersHoy();
+}
+
+async function loadOrdersHoy(){
+  const list = document.getElementById('orders-hoy');
+  list.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+  try{
+    const today = new Date().toLocaleDateString('en-CA',{timeZone:'America/Mexico_City'});
+    const res = await fetch('/api/ordenes/dia?date='+today);
+    const orders = await res.json();
+    if(!orders.length){list.innerHTML='<div class="empty">Sin ordenes cerradas hoy</div>';return;}
+    list.innerHTML = orders.map(o=>
+      '<div class="order-card" style="border-left-color:'+(o.payment_method==='cortesia'||o.payment_method==='cliente_frecuente'?'var(--amber)':'var(--teal)')+'">'+
+      '<div class="order-header"><span class="order-mesa">'+o.mesa_nombre+'</span><span class="order-total">$'+parseFloat(o.total).toFixed(2)+'</span></div>'+
+      '<div class="order-time">'+new Date(o.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})+' · '+(o.payment_method==='efectivo'?'💵 Efectivo':o.payment_method==='tarjeta'?'💳 Tarjeta':o.payment_method==='mixto'?'🔀 Mixto':o.payment_method==='cortesia'?'🎁 Cortesía':'⭐ Frecuente')+'</div>'+
+      (o.notas?'<div style="font-size:11px;color:var(--gray);font-style:italic;margin-top:4px">'+o.notas+'</div>':'')+
+      '</div>'
+    ).join('');
+  }catch(e){list.innerHTML='<div class="empty">Error al cargar</div>';}
+}
 
 async function loadAll(){
   await Promise.all([loadOrders(), loadSummary()]);
