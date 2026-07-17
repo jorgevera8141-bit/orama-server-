@@ -180,6 +180,7 @@ function updateCart(){
   document.getElementById("cart-count").textContent=count+" articulo"+(count!==1?"s":"");
   document.getElementById("cart-total").textContent="$"+total.toFixed(2);
   document.getElementById("order-btn").disabled=cart.length===0;
+  document.getElementById('cancel-btn').style.display=cart.length>0?'block':'none';
   document.getElementById("cart-items").innerHTML=cart.map(i=>
     '<div class="cart-item-row">'+
     '<span class="cart-item-name">'+i.nombre+'</span>'+
