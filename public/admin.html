@@ -78,8 +78,11 @@
       </div>
     </div>
     <button class="search-btn" onclick="loadReports()">🔍 Buscar</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <button onclick="exportReporteCSV()" style="background:white;border:1.5px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Exportar ventas</button>
+      <button onclick="exportProductosReporteCSV()" style="background:white;border:1.5px solid var(--teal);color:var(--teal);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Exportar productos</button>
+    </div>
   </div>
-
   <div class="summary-grid">
     <div class="stat-card">
       <div class="stat-value" id="rep-ordenes">—</div>
@@ -122,11 +125,35 @@ function showTab(tab){
   if(tab==="menu" && !allMenuItems.length) loadMenuItems();
 }
 
-// Set default dates (today)
 const today = new Date().toLocaleDateString("en-CA");
 const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString("en-CA");
 document.getElementById("date-from").value = firstOfMonth;
 document.getElementById("date-to").value = today;
+let reporteOrders = [];
+let reporteCategorias = [];
+
+function exportCSV(filename, headers, rows){
+  const csv = [headers.join(','), ...rows.map(r=>r.map(v=>"\""+(v||'')+'\"').join(','))].join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportReporteCSV(){
+  if(!reporteOrders.length){alert('Primero busca un rango de fechas');return;}
+  const headers=['Mesa','Fecha','Total','Forma de Pago','Notas'];
+  const rows=reporteOrders.map(o=>[o.mesa_nombre,new Date(o.created_at).toLocaleDateString('es-MX'),parseFloat(o.total).toFixed(2),o.payment_method||'efectivo',o.notas||'']);
+  exportCSV('orama_ventas_'+document.getElementById('date-from').value+'_'+document.getElementById('date-to').value+'.csv',headers,rows);
+}
+
+function exportProductosReporteCSV(){
+  if(!reporteCategorias.length){alert('Primero busca un rango de fechas');return;}
+  const headers=['Categoria','Total Vendido'];
+  const rows=reporteCategorias.map(c=>[c.categoria,parseFloat(c.total).toFixed(2)]);
+  exportCSV('orama_productos_'+document.getElementById('date-from').value+'_'+document.getElementById('date-to').value+'.csv',headers,rows);
+}
 
 async function loadReports(){
   const from = document.getElementById("date-from").value;
@@ -142,7 +169,6 @@ async function loadReports(){
     document.getElementById("rep-promedio").textContent = data.ordenes > 0 ? "$"+parseFloat((data.total||0)/data.ordenes).toFixed(2) : "$0";
     document.getElementById("rep-dias").textContent = data.dias || 0;
 
-    // By category
     const cats = data.categorias || [];
     if(cats.length){
       document.getElementById("rep-categorias").innerHTML = cats.map(c=>
@@ -152,8 +178,9 @@ async function loadReports(){
       document.getElementById("rep-categorias").innerHTML = '<div class="empty">Sin datos</div>';
     }
 
-    // Orders list
     const orders = data.orders || [];
+    reporteOrders = orders;
+    reporteCategorias = data.categorias || [];
     if(orders.length){
       document.getElementById("rep-ordenes-list").innerHTML = orders.map(o=>
         '<div class="order-row"><div class="order-row-left"><div class="order-row-mesa">'+o.mesa_nombre+'</div><div class="order-row-time">'+new Date(o.created_at).toLocaleString("es-MX",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})+'</div></div><div class="order-row-total">$'+parseFloat(o.total).toFixed(2)+'</div></div>'
