@@ -160,7 +160,7 @@ app.put('/api/menu/:id', async (req, res) => {
 // REPORTS by date range
 app.get('/api/reportes', async (req, res) => {
   const { from, to } = req.query;
-  const [summary, categorias, orders] = await Promise.all([
+  const [summary, categorias, orders, productos, pagos] = await Promise.all([
     pool.query(`
       SELECT 
         COUNT(*) as ordenes,
@@ -183,12 +183,34 @@ app.get('/api/reportes', async (req, res) => {
       WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
       ORDER BY created_at DESC
       LIMIT 100
+    `, [from, to]),
+    pool.query(`
+      SELECT oi.item_nombre, 
+        SUM(oi.cantidad) as cantidad,
+        SUM(oi.precio * oi.cantidad) as total
+      FROM orden_items oi
+      JOIN ordenes o ON o.id = oi.orden_id
+      WHERE o.status='cerrada' AND DATE(o.created_at) BETWEEN $1 AND $2
+      GROUP BY oi.item_nombre
+      ORDER BY cantidad DESC
+      LIMIT 20
+    `, [from, to]),
+    pool.query(`
+      SELECT payment_method,
+        COUNT(*) as ordenes,
+        COALESCE(SUM(total),0) as total
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      GROUP BY payment_method
+      ORDER BY total DESC
     `, [from, to])
   ]);
   res.json({
     ...summary.rows[0],
     categorias: categorias.rows,
-    orders: orders.rows
+    orders: orders.rows,
+    productos: productos.rows,
+    pagos: pagos.rows
   });
 });
 
