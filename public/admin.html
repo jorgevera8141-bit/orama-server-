@@ -172,6 +172,14 @@ const today = new Date().toLocaleDateString("en-CA");
 const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString("en-CA");
 document.getElementById("date-from").value = firstOfMonth;
 document.getElementById("date-to").value = today;
+function toggleCollapse(id){
+  var body=document.getElementById('body-'+id);
+  var arrow=document.getElementById('arrow-'+id);
+  var isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  arrow.style.transform=isOpen?'':'rotate(180deg)';
+}
+
 let reporteOrders = [];
 let reporteCategorias = [];
 
