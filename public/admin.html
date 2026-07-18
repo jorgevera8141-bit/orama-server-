@@ -48,6 +48,14 @@
   .toggle-btn.active{background:#e8f8f4;color:var(--teal)}
   .toggle-btn.inactive{background:#fbe9e9;color:var(--red)}
   .search-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-family:Arial,sans-serif;margin-bottom:10px}
+  .collapse-card{border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .collapse-header{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;font-size:13px;font-weight:700;cursor:pointer;color:white}
+  .collapse-header.teal{background:linear-gradient(135deg,#0d6b54,#1aab85)}
+  .collapse-header.amber{background:linear-gradient(135deg,#d4862a,#E8A45A)}
+  .collapse-header.brown{background:linear-gradient(135deg,#1a0a04,#2d1a0e);color:#e8c99a}
+  .collapse-header.gray{background:linear-gradient(135deg,#444,#666)}
+  .collapse-arrow{font-size:12px;transition:transform 0.2s}
+  .collapse-body{background:white;padding:10px 14px}
   .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
   @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -102,13 +110,46 @@
     </div>
   </div>
 
-  <div class="section-label">Por categoría</div>
-  <div id="rep-categorias"><div class="empty">Selecciona un rango de fechas</div></div>
+  <!-- Collapsible sections -->
+  <div class="collapse-card" id="card-productos">
+    <div class="collapse-header teal" onclick="toggleCollapse('productos')">
+      <span>📦 Productos más vendidos</span>
+      <span class="collapse-arrow" id="arrow-productos">▼</span>
+    </div>
+    <div class="collapse-body" id="body-productos" style="display:none">
+      <div id="rep-productos"><div class="empty">Selecciona un rango de fechas</div></div>
+    </div>
+  </div>
 
-  <div class="section-label">Ordenes del periodo</div>
-  <div id="rep-ordenes-list"><div class="empty">Selecciona un rango de fechas</div></div>
-  <div id="rep-productos"></div>
-  <div id="rep-pagos"></div>
+  <div class="collapse-card" id="card-pagos">
+    <div class="collapse-header amber" onclick="toggleCollapse('pagos')">
+      <span>💳 Por forma de pago</span>
+      <span class="collapse-arrow" id="arrow-pagos">▼</span>
+    </div>
+    <div class="collapse-body" id="body-pagos" style="display:none">
+      <div id="rep-pagos"><div class="empty">Selecciona un rango de fechas</div></div>
+    </div>
+  </div>
+
+  <div class="collapse-card" id="card-categorias">
+    <div class="collapse-header brown" onclick="toggleCollapse('categorias')">
+      <span>🏷️ Por categoría</span>
+      <span class="collapse-arrow" id="arrow-categorias">▼</span>
+    </div>
+    <div class="collapse-body" id="body-categorias" style="display:none">
+      <div id="rep-categorias"><div class="empty">Selecciona un rango de fechas</div></div>
+    </div>
+  </div>
+
+  <div class="collapse-card" id="card-ordenes">
+    <div class="collapse-header gray" onclick="toggleCollapse('ordenes')">
+      <span>📋 Ordenes del periodo</span>
+      <span class="collapse-arrow" id="arrow-ordenes">▼</span>
+    </div>
+    <div class="collapse-body" id="body-ordenes" style="display:none">
+      <div id="rep-ordenes-list"><div class="empty">Selecciona un rango de fechas</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- MENU TAB -->
