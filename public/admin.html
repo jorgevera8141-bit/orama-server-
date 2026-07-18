@@ -107,6 +107,8 @@
 
   <div class="section-label">Ordenes del periodo</div>
   <div id="rep-ordenes-list"><div class="empty">Selecciona un rango de fechas</div></div>
+  <div id="rep-productos"></div>
+  <div id="rep-pagos"></div>
 </div>
 
 <!-- MENU TAB -->
@@ -176,6 +178,25 @@ async function loadReports(){
       ).join("");
     } else {
       document.getElementById("rep-categorias").innerHTML = '<div class="empty">Sin datos</div>';
+    }
+
+    const productos = data.productos || [];
+    if(productos.length){
+      document.getElementById("rep-productos").innerHTML = '<div class="section-label">Productos más vendidos</div>' + productos.map(p=>
+        '<div class="cat-row"><span class="cat-name">'+p.item_nombre+'</span><span style="font-size:11px;color:var(--gray);margin-right:8px">x'+p.cantidad+'</span><span class="cat-total">$'+parseFloat(p.total).toFixed(2)+'</span></div>'
+      ).join("");
+    } else {
+      document.getElementById("rep-productos").innerHTML = '<div class="empty">Sin datos</div>';
+    }
+
+    const pagos = data.pagos || [];
+    const payIcons = {efectivo:'💵',tarjeta:'💳',mixto:'🔀',cortesia:'🎁',cliente_frecuente:'⭐'};
+    if(pagos.length){
+      document.getElementById("rep-pagos").innerHTML = '<div class="section-label">Por forma de pago</div>' + pagos.map(p=>
+        '<div class="cat-row"><span class="cat-name">'+(payIcons[p.payment_method]||'💰')+' '+p.payment_method+'</span><span style="font-size:11px;color:var(--gray);margin-right:8px">'+p.ordenes+' ordenes</span><span class="cat-total">$'+parseFloat(p.total).toFixed(2)+'</span></div>'
+      ).join("");
+    } else {
+      document.getElementById("rep-pagos").innerHTML = '<div class="empty">Sin datos</div>';
     }
 
     const orders = data.orders || [];
