@@ -330,6 +330,95 @@ async function confirmarPago(){
   loadAll();
   // Mark person as paid if in split mode
   if(window._splitPersonCallback) window._splitPersonCallback();
+  // Show receipt
+  if(currentOrdenId) showReceipt(currentOrdenId, currentTotal, currentMethod);
+}
+
+async function showReceipt(ordenId, total, method) {
+  // Fetch items for this order
+  let items = [];
+  let mesaNombre = '';
+  try {
+    const res = await fetch('/api/ordenes/' + ordenId + '/items');
+    items = await res.json();
+  } catch(e) {}
+
+  const now = new Date();
+  const fecha = now.toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Mexico_City' });
+  const hora = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', timeZone:'America/Mexico_City' });
+
+  const methodLabel = method === 'efectivo' ? 'Efectivo' : method === 'tarjeta' ? 'Tarjeta' : method === 'mixto' ? 'Mixto' : method === 'cortesia' ? 'Cortesía' : 'Cliente Frecuente';
+
+  let efectivoRec = 0, cambio = 0;
+  if(method === 'efectivo') {
+    efectivoRec = parseFloat(document.getElementById('efectivo-input')?.value) || total;
+    cambio = efectivoRec - total;
+  }
+  let mixtoEfectivo = 0, mixtoTarjeta = 0;
+  if(method === 'mixto') {
+    mixtoEfectivo = parseFloat(document.getElementById('mixto-efectivo')?.value) || 0;
+    mixtoTarjeta = parseFloat(document.getElementById('mixto-tarjeta')?.value) || 0;
+  }
+
+  const itemsHtml = items.map(function(i) {
+    return '<tr>'
+      + '<td style="padding:3px 0;font-size:13px">x' + i.cantidad + ' ' + i.item_nombre + '</td>'
+      + '<td style="padding:3px 0;font-size:13px;text-align:right">$' + parseFloat(i.precio * i.cantidad).toFixed(2) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  const extraHtml = method === 'efectivo' && efectivoRec > 0 ? 
+    '<tr><td style="font-size:12px;color:#666">Recibido</td><td style="font-size:12px;color:#666;text-align:right">$' + efectivoRec.toFixed(2) + '</td></tr>'
+    + '<tr><td style="font-size:12px;color:#666">Cambio</td><td style="font-size:12px;color:#666;text-align:right">$' + cambio.toFixed(2) + '</td></tr>'
+    : method === 'mixto' ?
+    '<tr><td style="font-size:12px;color:#666">Efectivo</td><td style="font-size:12px;color:#666;text-align:right">$' + mixtoEfectivo.toFixed(2) + '</td></tr>'
+    + '<tr><td style="font-size:12px;color:#666">Tarjeta</td><td style="font-size:12px;color:#666;text-align:right">$' + mixtoTarjeta.toFixed(2) + '</td></tr>'
+    : '';
+
+  const receiptHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+    + '<title>Recibo — Orama Café</title>'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{font-family:"Courier New",monospace;background:white;display:flex;justify-content:center;padding:20px}'
+    + '.receipt{width:300px;padding:20px 16px}'
+    + '.logo{text-align:center;font-size:22px;font-weight:700;letter-spacing:3px;font-family:Georgia,serif;color:#0d6b54;margin-bottom:4px}'
+    + '.address{text-align:center;font-size:11px;color:#666;line-height:1.6;margin-bottom:12px}'
+    + '.divider{border-top:1px dashed #ccc;margin:10px 0}'
+    + '.meta{display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:8px}'
+    + 'table{width:100%;border-collapse:collapse}'
+    + '.total-row td{font-size:15px;font-weight:700;color:#0d6b54;padding-top:8px}'
+    + '.method{font-size:12px;color:#666;margin-top:6px}'
+    + '.thanks{text-align:center;margin-top:16px;font-size:13px;color:#0d6b54;font-style:italic}'
+    + '.btn-row{display:flex;gap:10px;margin-top:20px;justify-content:center}'
+    + '.btn{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}'
+    + '.btn-print{background:#0d6b54;color:white}'
+    + '.btn-close{background:#eee;color:#333}'
+    + '@media print{.btn-row{display:none}body{padding:0}}'
+    + '</style></head><body>'
+    + '<div class="receipt">'
+    + '<div class="logo">🌿 ORAMA CAFÉ</div>'
+    + '<div class="address">Venustiano Carranza 108-a<br>Aguascalientes, Ags. C.P. 20000<br>México</div>'
+    + '<div class="divider"></div>'
+    + '<div class="meta"><span>' + fecha + ' ' + hora + '</span><span>Orden #' + ordenId + '</span></div>'
+    + '<div class="divider"></div>'
+    + '<table>' + itemsHtml + '</table>'
+    + '<div class="divider"></div>'
+    + '<table>'
+    + '<tr class="total-row"><td>TOTAL</td><td style="text-align:right">$' + total.toFixed(2) + '</td></tr>'
+    + extraHtml
+    + '</table>'
+    + '<div class="method">Método: ' + methodLabel + '</div>'
+    + '<div class="divider"></div>'
+    + '<div class="thanks">¡Gracias por tu visita!<br>Vuelve pronto 🌿</div>'
+    + '<div class="btn-row">'
+    + '<button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>'
+    + '<button class="btn btn-close" onclick="window.close()">Cerrar</button>'
+    + '</div>'
+    + '</div></body></html>';
+
+  const win = window.open('', '_blank', 'width=360,height=600');
+  if(win) { win.document.write(receiptHtml); win.document.close(); }
 }
 
 // ─── SPLIT SCREEN ───
