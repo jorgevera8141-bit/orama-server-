@@ -326,12 +326,16 @@ async function confirmarPago(){
       })
     });
   }
+  // Capture values before closePaymentModal clears them
+  const receiptId = currentOrdenId;
+  const receiptTotal = currentTotal;
+  const receiptMethod = currentMethod;
   closePaymentModal();
   loadAll();
   // Mark person as paid if in split mode
   if(window._splitPersonCallback) window._splitPersonCallback();
   // Show receipt
-  if(currentOrdenId) showReceipt(currentOrdenId, currentTotal, currentMethod);
+  if(receiptId) showReceipt(receiptId, receiptTotal, receiptMethod);
 }
 
 async function showReceipt(ordenId, total, method) {
@@ -417,8 +421,22 @@ async function showReceipt(ordenId, total, method) {
     + '</div>'
     + '</div></body></html>';
 
-  const win = window.open('', '_blank', 'width=360,height=600');
-  if(win) { win.document.write(receiptHtml); win.document.close(); }
+  // Write to existing window if already opened
+  if(window._receiptWin && !window._receiptWin.closed) {
+    window._receiptWin.document.open();
+    window._receiptWin.document.write(receiptHtml);
+    window._receiptWin.document.close();
+  } else {
+    const win = window.open('', '_blank', 'width=360,height=600');
+    if(win) { win.document.write(receiptHtml); win.document.close(); window._receiptWin = win; }
+    else {
+      // Fallback: show in modal if popup blocked
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:500;overflow-y:auto;padding:20px';
+      modal.innerHTML = receiptHtml + '<button onclick="this.parentElement.remove()" style="position:fixed;top:10px;right:10px;background:#0d6b54;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer">✕ Cerrar</button>';
+      document.body.appendChild(modal);
+    }
+  }
 }
 
 // ─── SPLIT SCREEN ───
