@@ -1,2 +1,4 @@
 node_modules/
 orama.db
+.env
+.DS_Store

@@ -1,3 +1,4 @@
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
@@ -5,14 +6,17 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Use DATABASE_URL env var on Railway, or local SQLite fallback
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required (set it in Railway, or in a local .env for dev)');
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:nwFIKcmWxuKUHUXorawzbqmIumCfAEMV@tokaido.proxy.rlwy.net:22840/railway',
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(__dirname + '/public'));
 app.get('/api/debug/ordenes', async (req, res) => {
   const result = await pool.query("SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card FROM ordenes WHERE status='cerrada' ORDER BY created_at DESC LIMIT 5");
   res.json(result.rows);
@@ -106,6 +110,20 @@ async function initDB() {
       login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       logout_time TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS orama_facturas (
+      id SERIAL PRIMARY KEY,
+      orden_id INTEGER REFERENCES ordenes(id),
+      folio_fiscal TEXT,
+      facturapi_id TEXT,
+      rfc_receptor TEXT,
+      razon_social TEXT,
+      total NUMERIC,
+      fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      status TEXT DEFAULT 'timbrada',
+      pdf_url TEXT,
+      xml_url TEXT
+    );
   `);
 
   await pool.query(`
@@ -118,6 +136,9 @@ await pool.query(`
   `).catch(()=>{});
   await pool.query(`
     ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS clave TEXT;
+  `).catch(() => {});
+  await pool.query(`
+    ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS clave_sat TEXT;
   `).catch(() => {});
 await pool.query(`
     ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'efectivo';
@@ -347,7 +368,178 @@ app.get('/api/finanzas', async (req, res) => {
     `, [from, to])
   ]);
   res.json({ ingresos: ingresos.rows, gastos: gastos.rows });
-});// STAFF
+});
+
+// ─── FACTURACION CFDI ───
+const CLAVE_PROD_SERV_DEFAULT = '90101501';
+const CFDI_GLOBAL = {
+  legal_name: 'PUBLICO EN GENERAL',
+  tax_id: 'XAXX010101000',
+  tax_system: '616',
+  zip: '00000',
+  use: 'S01'
+};
+
+app.post('/api/factura', async (req, res) => {
+  try {
+    const { orden_id, tipo, rfc, razon_social, regimen_fiscal, cp, uso_cfdi, forma_pago_tarjeta, email } = req.body;
+    if(!orden_id) return res.status(400).json({ success: false, message: 'orden_id requerido' });
+
+    const ordenRes = await pool.query('SELECT * FROM ordenes WHERE id=$1', [orden_id]);
+    if(!ordenRes.rows.length) return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+    const orden = ordenRes.rows[0];
+
+    if(!orden.total || parseFloat(orden.total) <= 0){
+      return res.status(400).json({ success: false, message: 'La orden no tiene un total facturable' });
+    }
+    if(!['efectivo','tarjeta','mixto'].includes(orden.payment_method)){
+      return res.status(400).json({ success: false, message: 'Este tipo de orden no se puede facturar' });
+    }
+
+    let formaPago;
+    if(orden.payment_method === 'efectivo') formaPago = '01';
+    else if(orden.payment_method === 'mixto') formaPago = '99';
+    else {
+      if(!['04','28'].includes(forma_pago_tarjeta)){
+        return res.status(400).json({ success: false, message: 'forma_pago_tarjeta debe ser 04 (crédito) o 28 (débito)' });
+      }
+      formaPago = forma_pago_tarjeta;
+    }
+
+    const esGlobal = tipo === 'global';
+    const customer = esGlobal ? {
+      legal_name: CFDI_GLOBAL.legal_name,
+      tax_id: CFDI_GLOBAL.tax_id,
+      tax_system: CFDI_GLOBAL.tax_system,
+      address: { zip: CFDI_GLOBAL.zip }
+    } : {
+      legal_name: (razon_social || '').trim(),
+      tax_id: (rfc || '').trim().toUpperCase(),
+      tax_system: regimen_fiscal,
+      address: { zip: cp },
+      email: email || undefined
+    };
+    const usoCfdi = esGlobal ? CFDI_GLOBAL.use : uso_cfdi;
+
+    if(!esGlobal && (!customer.legal_name || !customer.tax_id || !customer.tax_system || !customer.address.zip || !usoCfdi)){
+      return res.status(400).json({ success: false, message: 'Faltan datos del receptor (RFC, razón social, régimen fiscal, CP o uso de CFDI)' });
+    }
+
+    const itemsRes = await pool.query(
+      `SELECT oi.item_nombre, oi.precio, oi.cantidad, mi.clave_sat
+       FROM orden_items oi
+       LEFT JOIN menu_items mi ON mi.nombre = oi.item_nombre
+       WHERE oi.orden_id=$1`,
+      [orden_id]
+    );
+    if(!itemsRes.rows.length) return res.status(400).json({ success: false, message: 'La orden no tiene artículos' });
+
+    const items = itemsRes.rows.map(it => ({
+      quantity: it.cantidad,
+      product: {
+        description: it.item_nombre,
+        product_key: it.clave_sat || CLAVE_PROD_SERV_DEFAULT,
+        unit_key: 'E48',
+        unit_name: 'Servicio',
+        price: parseFloat(it.precio),
+        tax_included: true,
+        taxes: [{ type: 'IVA', rate: 0.16 }]
+      }
+    }));
+
+    const facturapiRes = await fetch('https://www.facturapi.io/v2/invoices', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + process.env.FACTURAPI_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customer,
+        items,
+        payment_form: formaPago,
+        payment_method: 'PUE',
+        use: usoCfdi
+      })
+    });
+    const facturapiData = await facturapiRes.json();
+
+    if(!facturapiRes.ok){
+      return res.status(400).json({
+        success: false,
+        message: facturapiData.message || (facturapiData.error && facturapiData.error.message) || 'Error al timbrar con Facturapi'
+      });
+    }
+
+    const pdfUrl = '/api/factura/' + facturapiData.id + '/pdf';
+    const xmlUrl = '/api/factura/' + facturapiData.id + '/xml';
+
+    await pool.query(
+      `INSERT INTO orama_facturas (orden_id, folio_fiscal, facturapi_id, rfc_receptor, razon_social, total, status, pdf_url, xml_url)
+       VALUES ($1,$2,$3,$4,$5,$6,'timbrada',$7,$8)`,
+      [orden_id, facturapiData.uuid, facturapiData.id, customer.tax_id, customer.legal_name, orden.total, pdfUrl, xmlUrl]
+    );
+
+    res.json({
+      success: true,
+      folio_fiscal: facturapiData.uuid,
+      facturapi_id: facturapiData.id,
+      pdf_url: pdfUrl,
+      xml_url: xmlUrl
+    });
+  } catch(e) {
+    console.error('Error al facturar:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Proxy autenticado — Facturapi requiere el API key, así el link que compartimos sí abre
+app.get('/api/factura/:id/pdf', async (req, res) => {
+  try {
+    const r = await fetch(`https://www.facturapi.io/v2/invoices/${req.params.id}/pdf`, {
+      headers: { 'Authorization': 'Bearer ' + process.env.FACTURAPI_KEY }
+    });
+    if(!r.ok) return res.status(r.status).send('No se pudo obtener el PDF');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch(e) {
+    res.status(500).send('Error al obtener el PDF');
+  }
+});
+
+app.get('/api/factura/:id/xml', async (req, res) => {
+  try {
+    const r = await fetch(`https://www.facturapi.io/v2/invoices/${req.params.id}/xml`, {
+      headers: { 'Authorization': 'Bearer ' + process.env.FACTURAPI_KEY }
+    });
+    if(!r.ok) return res.status(r.status).send('No se pudo obtener el XML');
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch(e) {
+    res.status(500).send('Error al obtener el XML');
+  }
+});
+
+app.post('/api/factura/:id/email', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const r = await fetch(`https://www.facturapi.io/v2/invoices/${req.params.id}/email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + process.env.FACTURAPI_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(email ? { email } : {})
+    });
+    if(!r.ok){
+      const errData = await r.json().catch(() => ({}));
+      return res.status(400).json({ success: false, message: errData.message || 'No se pudo enviar el correo' });
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+// STAFF
 app.get('/api/staff', async (req, res) => {
   const result = await pool.query('SELECT id, nombre, tipo, idioma, activo FROM staff ORDER BY tipo, nombre');
   res.json(result.rows);
