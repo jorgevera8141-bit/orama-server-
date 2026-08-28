@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orama Café - Inventario</title>
+<link rel="stylesheet" href="/css/orama.css">
+<style>
+  body{max-width:480px;margin:0 auto}
+  .tab-content{padding:var(--space-3) var(--space-3) 100px}
+
+  .toolbar{display:flex;gap:var(--space-2);margin-bottom:var(--space-3);flex-wrap:wrap}
+  .toolbar .input{flex:1;min-width:140px}
+
+  .sort-row{display:flex;gap:6px;margin-bottom:var(--space-2);font-size:var(--text-xs)}
+  .sort-btn{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:var(--text-xs);font-weight:700;color:var(--muted);cursor:pointer}
+  .sort-btn.active{background:var(--teal-tint);border-color:var(--teal);color:var(--teal)}
+
+  /* stock card */
+  .stk{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:var(--space-2);border-left:4px solid var(--line)}
+  .stk.low{border-left-color:var(--error)}
+  .stk.warn{border-left-color:var(--warning)}
+  .stk-top{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2)}
+  .stk-name{font-size:var(--text-sm);font-weight:700;color:var(--brown)}
+  .stk-stock{font-size:var(--text-md);font-weight:700;color:var(--teal);white-space:nowrap}
+  .stk.low .stk-stock{color:var(--error)}
+  .stk.warn .stk-stock{color:var(--warning)}
+  .stk-meta{font-size:var(--text-xs);color:var(--muted);margin-top:3px;line-height:1.6}
+  .stk-badge{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:10px;margin-left:6px}
+  .stk-badge.low{background:#fbe9e9;color:var(--error)}
+  .stk-badge.warn{background:#fdf0e8;color:var(--warning)}
+  .stk-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .stk-actions .btn{padding:5px 10px;font-size:var(--text-xs)}
+
+  /* inline form card */
+  .form-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--space-3);margin-bottom:var(--space-3)}
+  .form-card h3{font-size:var(--text-sm);color:var(--brown);margin-bottom:var(--space-3)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+  .form-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-top:var(--space-2)}
+
+  /* recipe editor */
+  .rec-menu-item{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:6px;cursor:pointer}
+  .rec-menu-item.sel{outline:2px solid var(--teal)}
+  .rec-mi-name{font-size:var(--text-sm);font-weight:600;color:var(--brown)}
+  .rec-mi-cat{font-size:var(--text-xs);color:var(--muted);margin-top:1px}
+  .rec-has{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--teal-tint);color:var(--teal);white-space:nowrap}
+  .rec-has.no{background:#f0f0f0;color:var(--muted)}
+  .rec-comp{display:flex;align-items:center;gap:var(--space-2);padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:var(--text-sm)}
+  .rec-comp:last-child{border-bottom:none}
+  .rec-comp-name{flex:1;color:var(--brown)}
+  .rec-comp-qty{color:var(--muted);white-space:nowrap}
+  .progress-note{font-size:var(--text-xs);color:var(--muted);text-align:center;margin-bottom:var(--space-2)}
+
+  /* shopping list */
+  .shop-row{display:flex;justify-content:space-between;align-items:flex-start;background:var(--surface);border-radius:10px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:6px}
+  .shop-name{font-size:var(--text-sm);font-weight:700;color:var(--brown)}
+  .shop-sub{font-size:var(--text-xs);color:var(--muted);margin-top:2px}
+  .shop-qty{font-size:var(--text-md);font-weight:700;color:var(--teal);white-space:nowrap}
+  .shop-total{background:var(--teal-tint);border-radius:var(--radius);padding:12px 14px;display:flex;justify-content:space-between;font-weight:700;color:var(--teal-dark);margin-top:var(--space-2)}
+
+  /* movements */
+  .mv-row{display:grid;grid-template-columns:auto 1fr auto;gap:var(--space-2);align-items:center;background:var(--surface);border-radius:8px;box-shadow:var(--shadow);padding:9px 12px;margin-bottom:5px;font-size:var(--text-xs)}
+  .mv-amt{font-weight:700;white-space:nowrap}
+  .mv-amt.neg{color:var(--error)}
+  .mv-amt.pos{color:var(--teal)}
+  .mv-reason{font-weight:700;text-transform:uppercase;letter-spacing:.3px;font-size:9px;padding:2px 6px;border-radius:8px;background:#f0f0f0;color:var(--muted)}
+  .mv-when{color:var(--muted);white-space:nowrap}
+  .mv-note{color:var(--muted);grid-column:1/-1;margin-top:2px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="o-header">
+  <button class="btn btn--ghost btn--sm" onclick="location.href='/dashboard.html'" style="margin-bottom:var(--space-2)">← Dashboard</button>
+  <h1>🌿 ORAMA CAFÉ</h1>
+  <p>Inventario de insumos</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('stock')">📦 Existencias</div>
+  <div class="tab" onclick="showTab('recetas')">📖 Recetas</div>
+  <div class="tab" onclick="showTab('compras')">🛒 Compras</div>
+  <div class="tab" onclick="showTab('movimientos')">📋 Movimientos</div>
+</div>
+
+<!-- ══ EXISTENCIAS ══ -->
+<div id="tab-stock" class="tab-content active">
+  <div class="toolbar">
+    <input class="input" id="stk-search" placeholder="Buscar insumo..." oninput="renderStock()">
+    <button class="btn btn--primary" onclick="openItemForm()">+ Nuevo</button>
+  </div>
+  <div class="toolbar" style="margin-bottom:var(--space-2)">
+    <button class="btn btn--secondary btn--sm" style="flex:1" onclick="openRequestForm()">🛒 Solicitar resurtido (nota libre)</button>
+  </div>
+  <div id="req-form"></div>
+  <div id="item-form"></div>
+  <div id="action-form"></div>
+  <div class="sort-row">
+    <span style="color:var(--muted);align-self:center">Ordenar:</span>
+    <button class="sort-btn active" data-sort="low" onclick="setSort('low')">Bajo primero</button>
+    <button class="sort-btn" data-sort="name" onclick="setSort('name')">Nombre</button>
+    <button class="sort-btn" data-sort="stock" onclick="setSort('stock')">Existencia</button>
+  </div>
+  <div id="stock-list"><div class="spinner"></div></div>
+</div>
+
+<!-- ══ RECETAS ══ -->
+<div id="tab-recetas" class="tab-content">
+  <div class="progress-note" id="rec-progress">—</div>
+  <div class="toolbar">
+    <input class="input" id="rec-search" placeholder="Buscar producto del menú..." oninput="renderMenuList()">
+    <button class="btn btn--secondary btn--sm" onclick="jumpNextWithoutRecipe()">⏭ Sin receta</button>
+  </div>
+  <div id="rec-editor"></div>
+  <div id="menu-list"><div class="spinner"></div></div>
+</div>
+
+<!-- ══ COMPRAS ══ -->
+<div id="tab-compras" class="tab-content">
+  <div class="toolbar" style="margin-bottom:var(--space-2)">
+    <button class="btn btn--secondary btn--sm" style="flex:1" onclick="exportShoppingCSV()">📥 CSV</button>
+    <button class="btn btn--secondary btn--sm" style="flex:1" onclick="sendShoppingToAdmin()">📨 Enviar a admin</button>
+  </div>
+  <div id="shop-list"><div class="spinner"></div></div>
+</div>
+
+<!-- ══ MOVIMIENTOS ══ -->
+<div id="tab-movimientos" class="tab-content">
+  <div class="form-card">
+    <div class="field">
+      <label class="field__label">Insumo</label>
+      <select class="input" id="mv-item" onchange="loadMovements()"></select>
+    </div>
+    <div class="grid2">
+      <div class="field"><label class="field__label">Desde</label><input type="date" class="input" id="mv-from" onchange="loadMovements()"></div>
+      <div class="field"><label class="field__label">Hasta</label><input type="date" class="input" id="mv-to" onchange="loadMovements()"></div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="field__label">Motivo</label>
+      <select class="input" id="mv-reason" onchange="loadMovements()">
+        <option value="">Todos</option>
+        <option value="sale">Venta</option>
+        <option value="restock">Resurtido</option>
+        <option value="manual_adjustment">Ajuste manual</option>
+        <option value="waste">Merma</option>
+      </select>
+    </div>
+  </div>
+  <div id="mv-list"><div class="empty"><span class="empty__icon">📋</span>Elige un insumo para ver su historial</div></div>
+</div>
+
+<script src="/js/orama.js"></script>
+<script>
+const REASON_LABEL = { sale:'Venta', restock:'Resurtido', manual_adjustment:'Ajuste', waste:'Merma' };
+let items = [];        // inventory_items
+let staff = [];        // staff list for "¿Quién?"
+let menuItems = [];    // menu_items (269)
+let recipeMap = {};    // menu_item_id -> component count
+let sortMode = 'low';
+let selMenuId = null;
+let recDraft = [];     // [{inventory_item_id, quantity_used}]
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['stock','recetas','compras','movimientos'][i]===t));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='recetas') loadRecetas();
+  if(t==='compras') loadShopping();
+  if(t==='movimientos') fillMovementItemSelect();
+}
+
+// ── shared load ──
+async function loadCore(){
+  const [inv, stf] = await Promise.all([
+    fetch('/api/inventory').then(r=>r.json()),
+    fetch('/api/staff').then(r=>r.json())
+  ]);
+  items = inv; staff = stf.filter(s=>s.activo);
+  renderStock();
+}
+
+// ═══ EXISTENCIAS ═══
+function setSort(m){ sortMode=m; document.querySelectorAll('.sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===m)); renderStock(); }
+
+function stkClass(it){
+  if(Number(it.current_stock) <= Number(it.reorder_threshold)) return 'low';
+  if(Number(it.current_stock) <= Number(it.reorder_threshold) * 1.25) return 'warn';
+  return '';
+}
+
+function renderStock(){
+  const q = (document.getElementById('stk-search').value||'').toLowerCase();
+  let list = items.filter(it => it.name.toLowerCase().includes(q) || (it.supplier_name||'').toLowerCase().includes(q));
+  list.sort((a,b)=>{
+    if(sortMode==='name') return a.name.localeCompare(b.name);
+    if(sortMode==='stock') return Number(a.current_stock)-Number(b.current_stock);
+    // low first: low_stock desc, then how close to threshold
+    const ra = Number(a.current_stock)-Number(a.reorder_threshold);
+    const rb = Number(b.current_stock)-Number(b.reorder_threshold);
+    return ra-rb;
+  });
+  const el = document.getElementById('stock-list');
+  if(!items.length){ el.innerHTML='<div class="empty"><span class="empty__icon">📦</span>Aún no hay insumos<span class="empty__hint">Agrega el primero con “+ Nuevo”</span></div>'; return; }
+  if(!list.length){ el.innerHTML='<div class="empty"><span class="empty__icon">🔍</span>Sin resultados</div>'; return; }
+  el.innerHTML = list.map(it=>{
+    const cls = stkClass(it);
+    const badge = cls==='low' ? '<span class="stk-badge low">Bajo</span>' : cls==='warn' ? '<span class="stk-badge warn">Casi</span>' : '';
+    const supplier = it.supplier_name ? esc(it.supplier_name) : 'sin proveedor';
+    return `<div class="stk ${cls}">
+      <div class="stk-top">
+        <span class="stk-name">${esc(it.name)}${badge}</span>
+        <span class="stk-stock">${fmt(it.current_stock)} ${esc(it.unit)}</span>
+      </div>
+      <div class="stk-meta">
+        ${supplier} · $${fmt(it.cost_per_unit)}/${esc(it.unit)}<br>
+        umbral ${fmt(it.reorder_threshold)} · resurtir ${fmt(it.reorder_quantity)} ${esc(it.unit)}
+        ${it.last_restocked_at ? '· últ. resurtido '+shortDate(it.last_restocked_at)+(it.last_restocked_by_name?' ('+esc(it.last_restocked_by_name)+')':'') : ''}
+      </div>
+      <div class="stk-actions">
+        <button class="btn btn--primary" onclick="openRestock(${it.id})">Resurtir</button>
+        <button class="btn btn--secondary" onclick="openAdjust(${it.id})">Ajustar</button>
+        <button class="btn btn--secondary" onclick="quickRequest(${it.id})">Solicitar</button>
+        <button class="btn btn--secondary" onclick="openItemForm(${it.id})">Editar</button>
+        <button class="btn btn--danger" onclick="delItem(${it.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── new / edit item ──
+function openItemForm(id){
+  const it = id ? items.find(x=>x.id===id) : null;
+  document.getElementById('item-form').innerHTML = `
+    <div class="form-card">
+      <h3>${it ? 'Editar insumo' : 'Nuevo insumo'}</h3>
+      <div class="field"><label class="field__label">Nombre</label><input class="input" id="if-name" value="${it?esc(it.name):''}"></div>
+      <div class="grid2">
+        <div class="field"><label class="field__label">Unidad</label><input class="input" id="if-unit" placeholder="kg, L, pieza..." value="${it?esc(it.unit):'pieza'}"></div>
+        <div class="field"><label class="field__label">Costo por unidad $</label><input type="number" step="0.01" class="input" id="if-cost" value="${it?it.cost_per_unit:''}"></div>
+      </div>
+      ${it ? '' : '<div class="field"><label class="field__label">Existencia inicial</label><input type="number" step="0.001" class="input" id="if-stock" value="0"></div>'}
+      <div class="grid2">
+        <div class="field"><label class="field__label">Umbral de resurtido</label><input type="number" step="0.001" class="input" id="if-thr" value="${it?it.reorder_threshold:0}"></div>
+        <div class="field"><label class="field__label">Cantidad a pedir</label><input type="number" step="0.001" class="input" id="if-qty" value="${it?it.reorder_quantity:0}"></div>
+      </div>
+      <div class="field"><label class="field__label">Proveedor</label><input class="input" id="if-sup" value="${it&&it.supplier_name?esc(it.supplier_name):''}"></div>
+      <div class="field"><label class="field__label">Contacto del proveedor</label><input class="input" id="if-supc" value="${it&&it.supplier_contact?esc(it.supplier_contact):''}"></div>
+      <div class="form-actions">
+        <button class="btn btn--primary" onclick="saveItem(${it?it.id:'null'})">Guardar</button>
+        <button class="btn btn--secondary" onclick="document.getElementById('item-form').innerHTML=''">Cancelar</button>
+      </div>
+    </div>`;
+  document.getElementById('if-name').focus();
+}
+
+async function saveItem(id){
+  const body = {
+    name: val('if-name').trim(),
+    unit: val('if-unit').trim() || 'pieza',
+    cost_per_unit: num('if-cost'),
+    reorder_threshold: num('if-thr'),
+    reorder_quantity: num('if-qty'),
+    supplier_name: val('if-sup').trim() || null,
+    supplier_contact: val('if-supc').trim() || null
+  };
+  if(!body.name){ Orama.toast.warning('Ponle nombre al insumo'); return; }
+  if(!id) body.current_stock = num('if-stock');
+  const r = await fetch(id ? '/api/inventory/'+id : '/api/inventory', {
+    method: id ? 'PUT' : 'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if(!r.ok){ Orama.toast.error('No se pudo guardar'); return; }
+  document.getElementById('item-form').innerHTML='';
+  Orama.toast.success(id?'Insumo actualizado':'Insumo creado');
+  await loadCore();
+}
+
+async function delItem(id){
+  const it = items.find(x=>x.id===id);
+  if(!(await Orama.confirm('¿Borrar "'+it.name+'"? También se borra su receta y su historial.', {danger:true, okText:'Borrar'}))) return;
+  await fetch('/api/inventory/'+id, {method:'DELETE'});
+  Orama.toast.success('Insumo borrado');
+  await loadCore();
+}
+
+// ── restock ──
+function staffOptions(){
+  return '<option value="">— ¿Quién? —</option>' + staff.map(s=>`<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+}
+function openRestock(id){
+  const it = items.find(x=>x.id===id);
+  document.getElementById('action-form').innerHTML = `
+    <div class="form-card">
+      <h3>Resurtir — ${esc(it.name)}</h3>
+      <div class="stk-meta" style="margin-bottom:var(--space-2)">Existencia actual: ${fmt(it.current_stock)} ${esc(it.unit)}</div>
+      <div class="grid2">
+        <div class="field"><label class="field__label">Cantidad recibida (${esc(it.unit)})</label><input type="number" step="0.001" class="input" id="rs-qty" placeholder="${fmt(it.reorder_quantity)}"></div>
+        <div class="field"><label class="field__label">¿Quién?</label><select class="input" id="rs-who">${staffOptions()}</select></div>
+      </div>
+      <div class="field"><label class="field__label">Nota (opcional)</label><input class="input" id="rs-note" placeholder="factura, proveedor..."></div>
+      <div class="form-actions">
+        <button class="btn btn--primary" onclick="doRestock(${id})">Registrar</button>
+        <button class="btn btn--secondary" onclick="document.getElementById('action-form').innerHTML=''">Cancelar</button>
+      </div>
+    </div>`;
+  scrollToForm();
+}
+async function doRestock(id){
+  const quantity = num('rs-qty');
+  if(!(quantity>0)){ Orama.toast.warning('Cantidad inválida'); return; }
+  const r = await fetch('/api/inventory/'+id+'/restock', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ quantity, staff_id: val('rs-who')||null, note: val('rs-note').trim()||null })
+  });
+  if(!r.ok){ Orama.toast.error('No se pudo registrar'); return; }
+  document.getElementById('action-form').innerHTML='';
+  Orama.toast.success('Resurtido registrado');
+  await loadCore();
+}
+
+// ── adjust ──
+function openAdjust(id){
+  const it = items.find(x=>x.id===id);
+  document.getElementById('action-form').innerHTML = `
+    <div class="form-card">
+      <h3>Ajuste — ${esc(it.name)}</h3>
+      <div class="stk-meta" style="margin-bottom:var(--space-2)">Existencia actual: ${fmt(it.current_stock)} ${esc(it.unit)}</div>
+      <div class="grid2">
+        <div class="field"><label class="field__label">Cambio (${esc(it.unit)}, usa − para restar)</label><input type="number" step="0.001" class="input" id="aj-delta" placeholder="-0.5"></div>
+        <div class="field"><label class="field__label">Motivo</label>
+          <select class="input" id="aj-reason">
+            <option value="manual_adjustment">Corrección de conteo</option>
+            <option value="waste">Merma / desperdicio</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="field__label">¿Quién?</label><select class="input" id="aj-who">${staffOptions()}</select></div>
+        <div class="field"><label class="field__label">Nota (obligatoria)</label><input class="input" id="aj-note" placeholder="derrame, error de conteo..."></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn--primary" onclick="doAdjust(${id})">Aplicar</button>
+        <button class="btn btn--secondary" onclick="document.getElementById('action-form').innerHTML=''">Cancelar</button>
+      </div>
+    </div>`;
+  scrollToForm();
+}
+async function doAdjust(id){
+  const change_amount = num('aj-delta');
+  const note = val('aj-note').trim();
+  if(!change_amount){ Orama.toast.warning('Indica el cambio (+ o −)'); return; }
+  if(!note){ Orama.toast.warning('La nota es obligatoria'); return; }
+  const r = await fetch('/api/inventory/'+id+'/adjust', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ change_amount, reason: val('aj-reason'), staff_id: val('aj-who')||null, note })
+  });
+  if(!r.ok){ const e = await r.json().catch(()=>({})); Orama.toast.error(e.message||'No se pudo aplicar'); return; }
+  document.getElementById('action-form').innerHTML='';
+  Orama.toast.success('Ajuste aplicado');
+  await loadCore();
+}
+
+// ── request restock ──
+async function quickRequest(id){
+  const it = items.find(x=>x.id===id);
+  if(!(await Orama.confirm('¿Enviar solicitud de resurtido de "'+it.name+'" al admin?'))) return;
+  await fetch('/api/inventory/request-restock', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ item_id: id })
+  });
+  Orama.toast.success('Solicitud enviada');
+}
+function openRequestForm(){
+  document.getElementById('req-form').innerHTML = `
+    <div class="form-card">
+      <h3>Solicitar resurtido</h3>
+      <div class="field"><label class="field__label">¿Qué falta?</label><input class="input" id="rq-note" placeholder="se acabó la leche entera, faltan vasos..."></div>
+      <div class="form-actions">
+        <button class="btn btn--primary" onclick="sendRequest()">Enviar al admin</button>
+        <button class="btn btn--secondary" onclick="document.getElementById('req-form').innerHTML=''">Cancelar</button>
+      </div>
+    </div>`;
+  document.getElementById('rq-note').focus();
+}
+async function sendRequest(){
+  const note = val('rq-note').trim();
+  if(!note){ Orama.toast.warning('Escribe qué falta'); return; }
+  await fetch('/api/inventory/request-restock', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ note })
+  });
+  document.getElementById('req-form').innerHTML='';
+  Orama.toast.success('Solicitud enviada al admin');
+}
+
+// ═══ RECETAS ═══
+async function loadRecetas(){
+  if(!menuItems.length){
+    const [mi, rm] = await Promise.all([
+      fetch('/api/menu?all=1').then(r=>r.json()),
+      fetch('/api/recipes').then(r=>r.json())
+    ]);
+    menuItems = mi;
+    recipeMap = {}; rm.forEach(x=>recipeMap[x.menu_item_id]=x.components);
+  }
+  if(!items.length) await loadCore();
+  renderRecipeProgress();
+  renderMenuList();
+}
+function renderRecipeProgress(){
+  const withRec = Object.keys(recipeMap).length;
+  document.getElementById('rec-progress').textContent = `${withRec} de ${menuItems.length} productos con receta`;
+}
+function renderMenuList(){
+  const q = (document.getElementById('rec-search').value||'').toLowerCase();
+  const list = menuItems.filter(m=>m.nombre.toLowerCase().includes(q) || (m.categoria||'').toLowerCase().includes(q)).slice(0,120);
+  document.getElementById('menu-list').innerHTML = list.map(m=>{
+    const n = recipeMap[m.id];
+    return `<div class="rec-menu-item ${m.id===selMenuId?'sel':''}" onclick="selectMenu(${m.id})">
+      <div><div class="rec-mi-name">${esc(m.nombre)}</div><div class="rec-mi-cat">${esc(m.categoria)} · $${fmt(m.precio)}</div></div>
+      <span class="rec-has ${n?'':'no'}">${n?n+' insumo'+(n>1?'s':''):'sin receta'}</span>
+    </div>`;
+  }).join('') || '<div class="empty"><span class="empty__icon">🔍</span>Sin resultados</div>';
+}
+async function selectMenu(id){
+  selMenuId = id;
+  const comps = await fetch('/api/recipes/'+id).then(r=>r.json());
+  recDraft = comps.map(c=>({ inventory_item_id:c.inventory_item_id, quantity_used:Number(c.quantity_used) }));
+  renderMenuList();
+  renderRecipeEditor();
+}
+function renderRecipeEditor(){
+  const m = menuItems.find(x=>x.id===selMenuId);
+  if(!m){ document.getElementById('rec-editor').innerHTML=''; return; }
+  const rows = recDraft.map((c,idx)=>{
+    const it = items.find(x=>x.id===c.inventory_item_id);
+    return `<div class="rec-comp">
+      <span class="rec-comp-name">${it?esc(it.name):'#'+c.inventory_item_id}</span>
+      <span class="rec-comp-qty">${fmt(c.quantity_used)} ${it?esc(it.unit):''}</span>
+      <button class="btn btn--danger btn--sm" onclick="rmComp(${idx})">✕</button>
+    </div>`;
+  }).join('') || '<div class="stk-meta" style="padding:8px 0">Sin insumos todavía.</div>';
+  const opts = items.filter(it=>!recDraft.some(c=>c.inventory_item_id===it.id))
+    .map(it=>`<option value="${it.id}">${esc(it.name)} (${esc(it.unit)})</option>`).join('');
+  document.getElementById('rec-editor').innerHTML = `
+    <div class="form-card">
+      <h3>Receta — ${esc(m.nombre)}</h3>
+      ${rows}
+      <div class="grid2" style="margin-top:var(--space-2)">
+        <div class="field" style="margin-bottom:0"><label class="field__label">Insumo</label><select class="input" id="rc-inv">${opts||'<option>— sin insumos disponibles —</option>'}</select></div>
+        <div class="field" style="margin-bottom:0"><label class="field__label">Cantidad</label><input type="number" step="0.0001" class="input" id="rc-qty" placeholder="0.2"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn--secondary" onclick="addComp()">+ Agregar insumo</button>
+        <button class="btn btn--primary" onclick="saveRecipe()">Guardar receta</button>
+      </div>
+    </div>`;
+}
+function addComp(){
+  const id = Number(val('rc-inv')); const qty = num('rc-qty');
+  if(!id){ Orama.toast.warning('Elige un insumo'); return; }
+  if(!(qty>0)){ Orama.toast.warning('Cantidad inválida'); return; }
+  recDraft.push({ inventory_item_id:id, quantity_used:qty });
+  renderRecipeEditor();
+}
+function rmComp(idx){ recDraft.splice(idx,1); renderRecipeEditor(); }
+async function saveRecipe(){
+  const r = await fetch('/api/recipes/'+selMenuId, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ items: recDraft })
+  });
+  if(!r.ok){ Orama.toast.error('No se pudo guardar'); return; }
+  if(recDraft.length) recipeMap[selMenuId] = recDraft.length; else delete recipeMap[selMenuId];
+  Orama.toast.success('Receta guardada');
+  renderRecipeProgress(); renderMenuList();
+}
+function jumpNextWithoutRecipe(){
+  const q = (document.getElementById('rec-search').value||'').toLowerCase();
+  const pool = menuItems.filter(m=>!recipeMap[m.id] && (m.nombre.toLowerCase().includes(q) || (m.categoria||'').toLowerCase().includes(q)));
+  if(!pool.length){ Orama.toast.success('¡Todos los productos (del filtro) tienen receta!'); return; }
+  const startIdx = selMenuId ? pool.findIndex(m=>m.id===selMenuId) : -1;
+  const next = pool[(startIdx+1) % pool.length];
+  selectMenu(next.id);
+  document.getElementById('rec-editor').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ═══ COMPRAS ═══
+let shopping = [];
+async function loadShopping(){
+  shopping = await fetch('/api/inventory/shopping-list').then(r=>r.json());
+  const el = document.getElementById('shop-list');
+  if(!shopping.length){ el.innerHTML='<div class="empty"><span class="empty__icon">✅</span>Nada por debajo del umbral<span class="empty__hint">La despensa está bien surtida</span></div>'; return; }
+  let total = 0;
+  el.innerHTML = shopping.map(s=>{
+    total += Number(s.est_cost||0);
+    return `<div class="shop-row">
+      <div>
+        <div class="shop-name">${esc(s.name)}</div>
+        <div class="shop-sub">quedan ${fmt(s.current_stock)} ${esc(s.unit)} · ${s.supplier_name?esc(s.supplier_name):'sin proveedor'}${s.supplier_contact?' · '+esc(s.supplier_contact):''}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="shop-qty">${fmt(s.reorder_quantity)} ${esc(s.unit)}</div>
+        <div class="shop-sub">~$${fmt(s.est_cost)}</div>
+      </div>
+    </div>`;
+  }).join('') + `<div class="shop-total"><span>Estimado total</span><span>$${total.toFixed(2)}</span></div>`;
+}
+function exportShoppingCSV(){
+  if(!shopping.length){ Orama.toast.warning('Nada que exportar'); return; }
+  const headers = ['Insumo','Unidad','Quedan','Pedir','Costo unitario','Estimado','Proveedor','Contacto'];
+  const rows = shopping.map(s=>[s.name,s.unit,fmt(s.current_stock),fmt(s.reorder_quantity),fmt(s.cost_per_unit),fmt(s.est_cost),s.supplier_name||'',s.supplier_contact||'']);
+  const csv = [headers.join(','), ...rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','))].join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'orama_lista_compras_'+new Date().toLocaleDateString('en-CA')+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+async function sendShoppingToAdmin(){
+  if(!shopping.length){ Orama.toast.warning('Nada que enviar'); return; }
+  const lines = shopping.map(s=>`- ${s.name}: pedir ${fmt(s.reorder_quantity)} ${s.unit} (quedan ${fmt(s.current_stock)})`).join('\n');
+  await fetch('/api/inventory/request-restock', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ note: 'Lista de compras:\n'+lines })
+  });
+  Orama.toast.success('Lista enviada al admin');
+}
+
+// ═══ MOVIMIENTOS ═══
+function fillMovementItemSelect(){
+  const sel = document.getElementById('mv-item');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— elige insumo —</option>' + items.map(it=>`<option value="${it.id}">${esc(it.name)}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+async function loadMovements(){
+  const id = val('mv-item');
+  const el = document.getElementById('mv-list');
+  if(!id){ el.innerHTML='<div class="empty"><span class="empty__icon">📋</span>Elige un insumo para ver su historial</div>'; return; }
+  el.innerHTML = '<div class="spinner"></div>';
+  const qs = new URLSearchParams();
+  if(val('mv-from')) qs.set('from', val('mv-from'));
+  if(val('mv-to')) qs.set('to', val('mv-to'));
+  if(val('mv-reason')) qs.set('reason', val('mv-reason'));
+  const rows = await fetch('/api/inventory/'+id+'/movements?'+qs).then(r=>r.json());
+  if(!rows.length){ el.innerHTML='<div class="empty"><span class="empty__icon">🗓️</span>Sin movimientos en ese filtro</div>'; return; }
+  const unit = (items.find(x=>x.id===Number(id))||{}).unit || '';
+  el.innerHTML = rows.map(m=>{
+    const amt = Number(m.change_amount);
+    return `<div class="mv-row">
+      <span class="mv-reason">${REASON_LABEL[m.reason]||m.reason}</span>
+      <span class="mv-when">${shortDateTime(m.created_at)}${m.staff_nombre?' · '+esc(m.staff_nombre):''}${m.order_id?' · orden #'+m.order_id:''}</span>
+      <span class="mv-amt ${amt<0?'neg':'pos'}">${amt<0?'':'+'}${fmt(amt)} ${esc(unit)}</span>
+      ${m.note?`<span class="mv-note">${esc(m.note)}</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── helpers ──
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(n){ const x = Number(n); return Number.isInteger(x) ? String(x) : x.toFixed(x.toString().split('.')[1]?.length>3?3:2).replace(/\.?0+$/,''); }
+function val(id){ return document.getElementById(id).value; }
+function num(id){ return parseFloat(document.getElementById(id).value); }
+function shortDate(s){ return new Date(s).toLocaleDateString('es-MX',{day:'numeric',month:'short'}); }
+function shortDateTime(s){ return new Date(s).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+function scrollToForm(){ document.getElementById('action-form').scrollIntoView({behavior:'smooth',block:'center'}); }
+
+loadCore();
+</script>
+</body>
+</html>

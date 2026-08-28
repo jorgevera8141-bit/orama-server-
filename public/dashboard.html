@@ -17,6 +17,7 @@
   .nav{background:var(--surface);border-bottom:2px solid var(--line);display:flex;overflow-x:auto;position:relative;z-index:1}
   .nav-btn{flex-shrink:0;padding:10px 14px;font-size:var(--text-xs);font-weight:700;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
   .nav-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+  .nav-badge{display:inline-block;min-width:16px;padding:1px 5px;margin-left:5px;border-radius:9px;background:var(--error);color:#fff;font-size:10px;font-weight:700;text-align:center;vertical-align:middle}
   .content{padding:12px var(--space-3) 100px;position:relative;z-index:1}
   .tab-content{display:none}
   .tab-content.active{display:block}
@@ -90,7 +91,8 @@
   <button class="nav-btn active" onclick="showTab('inicio',this)">🏠 Inicio</button>
   <button class="nav-btn" onclick="showTab('ventas',this)">🛒 Ventas</button>
   <button class="nav-btn" onclick="showTab('reportes',this)">📊 Reportes</button>
-  <button class="nav-btn" onclick="showTab('inventario',this)">📦 Inventario</button>
+  <button class="nav-btn" onclick="showTab('inventario',this)">📋 Menú</button>
+  <button class="nav-btn" onclick="location.href='/inventory.html'">🏬 Insumos<span id="lowstock-badge" class="nav-badge o-hidden">0</span></button>
   <button class="nav-btn" onclick="showTab('personal',this)">👥 Personal</button>
   <button class="nav-btn" onclick="showTab('finanzas',this)">💰 Finanzas</button>
 </div>
@@ -501,8 +503,19 @@ async function loadActiveStaff(){
   }catch(e){document.getElementById('active-staff').innerHTML='<div class="empty"><span class="empty__icon">⚠️</span>Error al cargar</div>';}
 }
 
+async function loadLowStock(){
+  try{
+    const {count} = await fetch('/api/inventory/low-stock-count').then(r=>r.json());
+    const badge = document.getElementById('lowstock-badge');
+    badge.textContent = count;
+    badge.classList.toggle('o-hidden', !count);
+  }catch(e){}
+}
+
 loadInicio();
+loadLowStock();
 setInterval(loadMesas,30000);
+setInterval(loadLowStock,60000);
 </script>
 </body>
 </html>

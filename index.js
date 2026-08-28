@@ -124,6 +124,46 @@ async function initDB() {
       pdf_url TEXT,
       xml_url TEXT
     );
+
+    -- ── INVENTORY (Phase 2) ──
+    CREATE TABLE IF NOT EXISTS inventory_items (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'pieza',
+      current_stock NUMERIC NOT NULL DEFAULT 0,
+      reorder_threshold NUMERIC NOT NULL DEFAULT 0,
+      reorder_quantity NUMERIC NOT NULL DEFAULT 0,
+      cost_per_unit NUMERIC NOT NULL DEFAULT 0,
+      supplier_name TEXT,
+      supplier_contact TEXT,
+      last_restocked_at TIMESTAMP,
+      last_restocked_by INTEGER REFERENCES staff(id),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS recipe_items (
+      id SERIAL PRIMARY KEY,
+      menu_item_id INTEGER NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+      inventory_item_id INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+      quantity_used NUMERIC NOT NULL DEFAULT 0,
+      UNIQUE (menu_item_id, inventory_item_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id SERIAL PRIMARY KEY,
+      inventory_item_id INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+      change_amount NUMERIC NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('sale','manual_adjustment','restock','waste')),
+      order_id INTEGER,
+      staff_id INTEGER REFERENCES staff(id),
+      note TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_inv_mov_item ON inventory_movements(inventory_item_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_inv_mov_reason ON inventory_movements(reason);
+    CREATE INDEX IF NOT EXISTS idx_inv_mov_order ON inventory_movements(order_id);
+    CREATE INDEX IF NOT EXISTS idx_recipe_menu ON recipe_items(menu_item_id);
   `);
 
   await pool.query(`
@@ -266,11 +306,19 @@ app.post('/api/ordenes', async (req, res) => {
 app.put('/api/ordenes/:id/cerrar', async (req, res) => {
   const { payment_method, amount_cash, amount_card, notas } = req.body || {};
   const orden = await pool.query('SELECT * FROM ordenes WHERE id=$1', [req.params.id]);
+  const wasOpen = orden.rows[0]?.status === 'abierta';
   await pool.query(
     "UPDATE ordenes SET status='cerrada', payment_method=$1, amount_cash=$2, amount_card=$3, notas=$4 WHERE id=$5",
     [payment_method||'efectivo', amount_cash||0, amount_card||0, notas||'', req.params.id]
   );
-  
+
+  // Decrement inventory from recipes on the abierta -> cerrada transition (any close counts).
+  // Never blocks the order from closing: the sale already happened.
+  if (wasOpen) {
+    try { await deductInventoryForOrder(req.params.id); }
+    catch (e) { console.error('inventory deduction failed for orden', req.params.id, e.message); }
+  }
+
   // Send ntfy notification
   const mesa = orden.rows[0]?.mesa_nombre || 'Mesa';
   try{
@@ -621,6 +669,311 @@ app.post('/api/menu/nuevo', async (req, res) => {
   );
   res.json(result.rows[0]);
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  INVENTORY (Phase 2)
+// ═══════════════════════════════════════════════════════════════
+
+const NTFY_INVENTARIO = 'https://ntfy.sh/orama-inventario';
+
+// Fire-and-forget ntfy to the inventory topic. Body is UTF-8; Title stays ASCII
+// (HTTP header values are latin-1, and emoji in the body broke a past build).
+async function ntfyInventario(title, body, tags) {
+  try {
+    await fetch(NTFY_INVENTARIO, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Title': title,
+        'Tags': tags || 'package'
+      },
+      body
+    });
+  } catch (e) { console.log('ntfy inventario error:', e.message); }
+}
+
+// Decrement stock for every recipe component consumed by an order, log a movement
+// row per component, and alert on any item that just crossed its reorder threshold.
+// Runs in a transaction; idempotent per order_id.
+async function deductInventoryForOrder(ordenId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const already = await client.query(
+      "SELECT 1 FROM inventory_movements WHERE order_id=$1 AND reason='sale' LIMIT 1",
+      [ordenId]
+    );
+    if (already.rows.length) { await client.query('ROLLBACK'); return { skipped: 'already_deducted' }; }
+
+    const consumed = (await client.query(`
+      SELECT ri.inventory_item_id,
+             SUM(ri.quantity_used * oi.cantidad) AS qty
+      FROM orden_items oi
+      JOIN menu_items mi   ON mi.nombre = oi.item_nombre
+      JOIN recipe_items ri ON ri.menu_item_id = mi.id
+      WHERE oi.orden_id = $1
+      GROUP BY ri.inventory_item_id
+    `, [ordenId])).rows;
+
+    const crossed = [];
+    for (const row of consumed) {
+      const qty = Number(row.qty);
+      if (!qty) continue;
+      const upd = await client.query(`
+        UPDATE inventory_items
+        SET current_stock = current_stock - $1
+        WHERE id = $2
+        RETURNING name, unit, current_stock, reorder_threshold,
+                  (current_stock + $1) AS prev_stock
+      `, [qty, row.inventory_item_id]);
+      await client.query(
+        `INSERT INTO inventory_movements (inventory_item_id, change_amount, reason, order_id)
+         VALUES ($1, $2, 'sale', $3)`,
+        [row.inventory_item_id, -qty, ordenId]
+      );
+      const it = upd.rows[0];
+      if (it &&
+          Number(it.prev_stock) > Number(it.reorder_threshold) &&
+          Number(it.current_stock) <= Number(it.reorder_threshold)) {
+        crossed.push(it);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    for (const it of crossed) {
+      ntfyInventario(
+        'Inventario bajo',
+        `${it.name}: quedan ${Number(it.current_stock)} ${it.unit} (umbral ${Number(it.reorder_threshold)}). Hora de resurtir.`,
+        'package,warning'
+      );
+    }
+    return { deducted: consumed.length, alerts: crossed.length };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Apply a manual stock change (restock / adjustment / waste) + log the movement.
+async function applyStockChange({ itemId, changeAmount, reason, staffId, note, markRestocked }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const upd = markRestocked
+      ? await client.query(`
+          UPDATE inventory_items
+          SET current_stock = current_stock + $1,
+              last_restocked_at = CURRENT_TIMESTAMP,
+              last_restocked_by = $2
+          WHERE id = $3 RETURNING *`, [changeAmount, staffId || null, itemId])
+      : await client.query(`
+          UPDATE inventory_items
+          SET current_stock = current_stock + $1
+          WHERE id = $2 RETURNING *`, [changeAmount, itemId]);
+    if (!upd.rows.length) { await client.query('ROLLBACK'); return null; }
+    await client.query(
+      `INSERT INTO inventory_movements (inventory_item_id, change_amount, reason, staff_id, note)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [itemId, changeAmount, reason, staffId || null, note || null]
+    );
+    await client.query('COMMIT');
+    return upd.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// ── stock list / CRUD ──
+app.get('/api/inventory', async (req, res) => {
+  const result = await pool.query(`
+    SELECT i.*, s.nombre AS last_restocked_by_name,
+      (i.current_stock <= i.reorder_threshold) AS low_stock
+    FROM inventory_items i
+    LEFT JOIN staff s ON s.id = i.last_restocked_by
+    ORDER BY i.name
+  `);
+  res.json(result.rows);
+});
+
+app.get('/api/inventory/low-stock-count', async (req, res) => {
+  const r = await pool.query(
+    'SELECT COUNT(*)::int AS count FROM inventory_items WHERE current_stock <= reorder_threshold'
+  );
+  res.json({ count: r.rows[0].count });
+});
+
+app.get('/api/inventory/shopping-list', async (req, res) => {
+  const r = await pool.query(`
+    SELECT id, name, unit, current_stock, reorder_threshold, reorder_quantity,
+           cost_per_unit, supplier_name, supplier_contact,
+           ROUND(reorder_quantity * cost_per_unit, 2) AS est_cost
+    FROM inventory_items
+    WHERE current_stock <= reorder_threshold
+    ORDER BY supplier_name NULLS LAST, name
+  `);
+  res.json(r.rows);
+});
+
+app.post('/api/inventory', async (req, res) => {
+  const { name, unit, current_stock, reorder_threshold, reorder_quantity,
+          cost_per_unit, supplier_name, supplier_contact } = req.body || {};
+  if (!name) return res.status(400).json({ success: false, message: 'Nombre requerido' });
+  const r = await pool.query(`
+    INSERT INTO inventory_items
+      (name, unit, current_stock, reorder_threshold, reorder_quantity,
+       cost_per_unit, supplier_name, supplier_contact)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
+  `, [name, unit || 'pieza', current_stock || 0, reorder_threshold || 0,
+      reorder_quantity || 0, cost_per_unit || 0, supplier_name || null, supplier_contact || null]);
+  res.json(r.rows[0]);
+});
+
+app.put('/api/inventory/:id', async (req, res) => {
+  const { name, unit, reorder_threshold, reorder_quantity,
+          cost_per_unit, supplier_name, supplier_contact } = req.body || {};
+  const r = await pool.query(`
+    UPDATE inventory_items SET
+      name = COALESCE($1, name),
+      unit = COALESCE($2, unit),
+      reorder_threshold = COALESCE($3, reorder_threshold),
+      reorder_quantity = COALESCE($4, reorder_quantity),
+      cost_per_unit = COALESCE($5, cost_per_unit),
+      supplier_name = $6,
+      supplier_contact = $7
+    WHERE id = $8 RETURNING *
+  `, [name, unit, reorder_threshold, reorder_quantity, cost_per_unit,
+      supplier_name || null, supplier_contact || null, req.params.id]);
+  if (!r.rows.length) return res.status(404).json({ success: false, message: 'No encontrado' });
+  res.json(r.rows[0]);
+});
+
+app.delete('/api/inventory/:id', async (req, res) => {
+  await pool.query('DELETE FROM inventory_items WHERE id=$1', [req.params.id]);
+  res.json({ success: true });
+});
+
+// ── restock / adjust ──
+app.post('/api/inventory/:id/restock', async (req, res) => {
+  const { quantity, staff_id, note } = req.body || {};
+  const qty = Number(quantity);
+  if (!qty || qty <= 0) return res.status(400).json({ success: false, message: 'Cantidad inválida' });
+  const item = await applyStockChange({
+    itemId: req.params.id, changeAmount: qty, reason: 'restock',
+    staffId: staff_id, note, markRestocked: true
+  });
+  if (!item) return res.status(404).json({ success: false, message: 'No encontrado' });
+  res.json({ success: true, item });
+});
+
+app.post('/api/inventory/:id/adjust', async (req, res) => {
+  const { change_amount, reason, staff_id, note } = req.body || {};
+  const delta = Number(change_amount);
+  if (!delta) return res.status(400).json({ success: false, message: 'Cantidad inválida (usa + o -)' });
+  if (!['manual_adjustment', 'waste'].includes(reason)) {
+    return res.status(400).json({ success: false, message: 'Motivo inválido' });
+  }
+  if (!note || !note.trim()) return res.status(400).json({ success: false, message: 'La nota es obligatoria' });
+  const item = await applyStockChange({
+    itemId: req.params.id, changeAmount: delta, reason, staffId: staff_id, note: note.trim()
+  });
+  if (!item) return res.status(404).json({ success: false, message: 'No encontrado' });
+  res.json({ success: true, item });
+});
+
+// ── movement history for one item ──
+app.get('/api/inventory/:id/movements', async (req, res) => {
+  const { from, to, reason } = req.query;
+  const params = [req.params.id];
+  let q = `
+    SELECT m.*, s.nombre AS staff_nombre
+    FROM inventory_movements m
+    LEFT JOIN staff s ON s.id = m.staff_id
+    WHERE m.inventory_item_id = $1
+  `;
+  if (from) { params.push(from); q += ` AND DATE(m.created_at) >= $${params.length}`; }
+  if (to)   { params.push(to);   q += ` AND DATE(m.created_at) <= $${params.length}`; }
+  if (reason) { params.push(reason); q += ` AND m.reason = $${params.length}`; }
+  q += ' ORDER BY m.created_at DESC LIMIT 500';
+  const r = await pool.query(q, params);
+  res.json(r.rows);
+});
+
+// ── "Solicitar resurtido" — staff-initiated request, ntfy only, no DB write ──
+app.post('/api/inventory/request-restock', async (req, res) => {
+  const { item_id, item_name, current_stock, unit, note } = req.body || {};
+  let name = item_name, stock = current_stock, u = unit;
+  if (item_id && !name) {
+    const r = await pool.query('SELECT name, current_stock, unit FROM inventory_items WHERE id=$1', [item_id]);
+    if (r.rows.length) { name = r.rows[0].name; stock = r.rows[0].current_stock; u = r.rows[0].unit; }
+  }
+  const parts = ['Solicitud de resurtido'];
+  if (name) parts.push(`: ${name}`);
+  if (stock != null && u) parts.push(` (quedan ${Number(stock)} ${u})`);
+  if (note && note.trim()) parts.push(` — ${note.trim()}`);
+  await ntfyInventario('Solicitud de resurtido', parts.join(''), 'shopping_cart');
+  res.json({ success: true });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  RECIPES (menu item -> inventory it consumes)
+// ═══════════════════════════════════════════════════════════════
+
+// map of menu_item_id -> component count, for the editor's "has recipe" badges
+app.get('/api/recipes', async (req, res) => {
+  const r = await pool.query(
+    'SELECT menu_item_id, COUNT(*)::int AS components FROM recipe_items GROUP BY menu_item_id'
+  );
+  res.json(r.rows);
+});
+
+app.get('/api/recipes/:menuItemId', async (req, res) => {
+  const r = await pool.query(`
+    SELECT ri.id, ri.inventory_item_id, ri.quantity_used,
+           ii.name AS inventory_name, ii.unit, ii.cost_per_unit
+    FROM recipe_items ri
+    JOIN inventory_items ii ON ii.id = ri.inventory_item_id
+    WHERE ri.menu_item_id = $1
+    ORDER BY ii.name
+  `, [req.params.menuItemId]);
+  res.json(r.rows);
+});
+
+// replace the whole recipe for a menu item in one call
+app.put('/api/recipes/:menuItemId', async (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items)) return res.status(400).json({ success: false, message: 'items[] requerido' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM recipe_items WHERE menu_item_id=$1', [req.params.menuItemId]);
+    for (const it of items) {
+      const invId = Number(it.inventory_item_id);
+      const qty = Number(it.quantity_used);
+      if (!invId || !(qty > 0)) continue;
+      await client.query(
+        `INSERT INTO recipe_items (menu_item_id, inventory_item_id, quantity_used)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (menu_item_id, inventory_item_id) DO UPDATE SET quantity_used = EXCLUDED.quantity_used`,
+        [req.params.menuItemId, invId, qty]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, count: items.length });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, message: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Orama Server running at http://localhost:${PORT}`);
