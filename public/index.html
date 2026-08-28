@@ -4,69 +4,60 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Orama Café</title>
+<link rel="stylesheet" href="/css/orama.css">
 <style>
-  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--red:#D46B6B}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto}
-  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:20px;text-align:center}
-  .header h1{font-size:28px;font-weight:700;letter-spacing:2px;font-family:Georgia,serif}
-  .header p{font-size:12px;opacity:0.8;margin-top:4px;letter-spacing:1px}
+  body{max-width:480px;margin:0 auto}
   .screen{display:none}
   .screen.active{display:block}
 
   /* MESA */
-  .mesa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:20px 16px 100px}
-  .mesa-btn{background:white;border:2px solid var(--border);border-radius:14px;padding:20px 10px;text-align:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brown);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
-  .mesa-btn.special{background:linear-gradient(135deg,#e8f8f4,#d0f0e8);border-color:var(--teal);color:var(--dark)}
+  .mesa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:var(--space-4) var(--space-3) 100px}
+  .mesa-btn{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:20px 10px;text-align:center;cursor:pointer;font-size:var(--text-sm);font-weight:700;color:var(--brown);box-shadow:var(--shadow)}
+  .mesa-btn.special{background:linear-gradient(135deg,#e8f8f4,#d0f0e8);border-color:var(--teal);color:var(--teal-dark)}
 
   /* MENU */
-  .mesa-bar{background:var(--brown);color:white;padding:8px 16px;display:flex;justify-content:space-between;align-items:center}
-  .mesa-bar span{font-size:13px;font-weight:700}
-  .change-btn{background:rgba(255,255,255,0.2);border:none;border-radius:10px;padding:4px 10px;color:white;font-size:11px;cursor:pointer}
-  .search-wrap{padding:10px 16px 4px;background:white;border-bottom:1px solid var(--border)}
-  .search-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:Arial,sans-serif;outline:none}
+  .mesa-bar{background:var(--brown);color:#fff;padding:var(--space-2) var(--space-3);display:flex;justify-content:space-between;align-items:center}
+  .mesa-bar span{font-size:var(--text-sm);font-weight:700}
+  .change-btn{background:rgba(255,255,255,0.2);border:none;border-radius:10px;padding:4px 10px;color:#fff;font-size:var(--text-xs);cursor:pointer}
+  .search-wrap{padding:10px var(--space-3) 4px;background:var(--surface);border-bottom:1px solid var(--line)}
+  .search-input{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:9px 14px;font-size:var(--text-sm);font-family:var(--font-body);outline:none}
   .search-input:focus{border-color:var(--teal)}
-  .categories{display:flex;overflow-x:auto;gap:8px;padding:10px 16px;background:white;border-bottom:1px solid var(--border)}
-  .cat-btn{background:var(--light);border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--teal);cursor:pointer;white-space:nowrap}
-  .cat-btn.active{background:var(--teal);color:white}
-  .items{padding:10px 16px 220px}
-  .item{background:white;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:3px solid var(--teal)}
-  .item-name{font-size:13px;font-weight:600;color:#2d1a0e}
-  .item-price{font-size:12px;color:var(--teal);font-weight:700;margin-top:2px}
-  .add-btn{background:var(--teal);color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .categories{display:flex;overflow-x:auto;gap:var(--space-2);padding:10px var(--space-3);background:var(--surface);border-bottom:1px solid var(--line)}
+  .cat-btn{background:var(--teal-tint);border:none;border-radius:20px;padding:7px 14px;font-size:var(--text-xs);font-weight:600;color:var(--teal);cursor:pointer;white-space:nowrap}
+  .cat-btn.active{background:var(--teal);color:#fff}
+  .items{padding:10px var(--space-3) 220px}
+  .item{background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-bottom:var(--space-2);display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow);border-left:3px solid var(--teal)}
+  .item-name{font-size:var(--text-sm);font-weight:600;color:var(--brown)}
+  .item-price{font-size:var(--text-xs);color:var(--teal);font-weight:700;margin-top:2px}
+  .add-btn{background:var(--teal);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 
   /* CART */
-  .cart{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:2px solid var(--teal);box-shadow:0 -4px 20px rgba(0,0,0,0.1)}
-  .cart-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px;cursor:pointer}
-  .cart-count{font-size:13px;color:var(--gray)}
-  .cart-total{font-size:20px;font-weight:700;color:var(--teal)}
-  .cart-toggle{font-size:12px;color:var(--teal);font-weight:600}
-  .cart-items{display:none;max-height:200px;overflow-y:auto;padding:0 16px 8px;border-top:1px solid var(--border)}
+  .cart{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:2px solid var(--teal);box-shadow:0 -4px 20px rgba(0,0,0,0.1)}
+  .cart-header{display:flex;justify-content:space-between;align-items:center;padding:10px var(--space-3) 6px;cursor:pointer}
+  .cart-count{font-size:var(--text-sm);color:var(--muted)}
+  .cart-total{font-size:var(--text-lg);font-weight:700;color:var(--teal)}
+  .cart-toggle{font-size:var(--text-xs);color:var(--teal);font-weight:600}
+  .cart-items{display:none;max-height:200px;overflow-y:auto;padding:0 var(--space-3) var(--space-2);border-top:1px solid var(--line)}
   .cart-items.open{display:block}
   .cart-item-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0}
   .cart-item-row:last-child{border-bottom:none}
-  .cart-item-name{font-size:13px;color:var(--brown);flex:1}
-  .cart-item-qty{font-size:12px;color:var(--gray);margin:0 8px}
-  .cart-item-price{font-size:13px;font-weight:700;color:var(--teal);margin-right:8px}
-  .remove-btn{background:#fbe9e9;border:none;border-radius:50%;width:24px;height:24px;color:var(--red);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .cart-btn{width:calc(100% - 32px);margin:6px 16px 12px;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;display:block}
+  .cart-item-name{font-size:var(--text-sm);color:var(--brown);flex:1}
+  .cart-item-qty{font-size:var(--text-xs);color:var(--muted);margin:0 var(--space-2)}
+  .cart-item-price{font-size:var(--text-sm);font-weight:700;color:var(--teal);margin-right:var(--space-2)}
+  .remove-btn{background:#fbe9e9;border:none;border-radius:50%;width:24px;height:24px;color:var(--error);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .cart-btn{width:calc(100% - 32px);margin:6px var(--space-3) 12px;background:var(--brand-gradient);color:#fff;border:none;border-radius:var(--radius);padding:13px;font-size:var(--text-md);font-weight:700;cursor:pointer;display:block}
   .cart-btn:disabled{background:#ccc;cursor:default}
-  .empty{text-align:center;padding:40px;color:var(--gray)}
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>🌿 ORAMA CAFÉ</h1>
-  <p id="header-sub">Selecciona tu mesa</p>
-</div>
-<div class="header">
-  <button onclick="window.location.href='/dashboard.html'" style="background:rgba(255,255,255,0.2);border:none;border-radius:20px;padding:5px 12px;color:white;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">← Dashboard</button>
+<div class="o-header">
+  <button class="btn btn--ghost btn--sm" onclick="location.href='/dashboard.html'" style="margin-bottom:var(--space-2)">← Dashboard</button>
   <h1>🌿 ORAMA CAFÉ</h1>
   <p id="header-sub">Selecciona tu mesa</p>
 </div>
 <div id="screen-mesas" class="screen active">
-  <div style="padding:16px 16px 8px;font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px">Selecciona tu mesa</div>
-  <div class="mesa-grid" id="mesa-grid"></div>
+  <div style="padding:var(--space-3) var(--space-3) var(--space-2);font-size:var(--text-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Selecciona tu mesa</div>
+  <div class="mesa-grid" id="mesa-grid"><div class="spinner" style="grid-column:1/-1"></div></div>
 </div>
 
 <div id="screen-menu" class="screen">
@@ -78,7 +69,7 @@
     <input type="text" class="search-input" placeholder="🔍 Buscar producto..." oninput="searchItems(this.value)" id="search-input">
   </div>
   <div class="categories" id="categories"></div>
-  <div class="items" id="items"><div class="empty">Cargando menu...</div></div>
+  <div class="items" id="items"><div class="spinner"></div></div>
   <div class="cart">
     <div class="cart-header" onclick="toggleCart()">
       <span class="cart-count" id="cart-count">0 articulos</span>
@@ -87,17 +78,20 @@
     </div>
     <div class="cart-items" id="cart-items"></div>
     <button class="cart-btn" id="order-btn" disabled onclick="submitOrder()">Ordenar</button>
-    <button onclick="cancelarCarrito()" id="cancel-btn" style="display:none;width:calc(100% - 32px);margin:0 16px 8px;background:none;border:1.5px solid var(--red);border-radius:12px;padding:11px;font-size:14px;font-weight:700;color:var(--red);cursor:pointer">❌ Cancelar orden</button>
+    <button onclick="cancelarCarrito()" id="cancel-btn" class="btn btn--danger" style="display:none;width:calc(100% - 32px);margin:0 16px 8px">❌ Cancelar orden</button>
   </div>
 </div>
 
+<script src="/js/orama.js"></script>
 <script>
 let menu=[],cart=[],currentCat="Todos",mesaId=null,mesaNombre="",cartOpen=false,searchQuery="";
 
 async function loadMesas(){
   const res=await fetch("/api/mesas");
   const mesas=await res.json();
-  document.getElementById("mesa-grid").innerHTML=mesas.map(m=>
+  const grid=document.getElementById("mesa-grid");
+  if(!mesas.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><span class="empty__icon">🍽️</span>No hay mesas configuradas</div>';return;}
+  grid.innerHTML=mesas.map(m=>
     '<button class="mesa-btn'+(m.nombre==="Barra"||m.nombre==="Boutique"?" special":"")+'" onclick="selectMesa('+m.id+',this.textContent)">'+m.nombre+'</button>'
   ).join("");
 }
@@ -149,7 +143,7 @@ function renderItems(){
   else if(currentCat!=="Todos") filtered=menu.filter(i=>i.categoria===currentCat);
   document.getElementById("items").innerHTML=filtered.map(i=>
     '<div class="item"><div><div class="item-name">'+i.nombre+'</div><div class="item-price">$'+parseFloat(i.precio).toFixed(2)+'</div></div><button class="add-btn" onclick="addToCart('+i.id+')">+</button></div>'
-  ).join("")||'<div class="empty">Sin resultados</div>';
+  ).join("")||'<div class="empty"><span class="empty__icon">🔍</span>Sin resultados</div>';
 }
 
 function addToCart(id){
@@ -188,11 +182,11 @@ function updateCart(){
     '<span class="cart-item-price">$'+(i.precio*i.cantidad).toFixed(2)+'</span>'+
     '<button class="remove-btn" onclick="removeFromCart('+i.id+')">−</button>'+
     '</div>'
-  ).join("")||'<div style="padding:10px;color:var(--gray);font-size:12px;text-align:center">Carrito vacío</div>';
+  ).join("")||'<div style="padding:10px;color:var(--muted);font-size:var(--text-xs);text-align:center">Carrito vacío</div>';
 }
 
-function cancelarCarrito(){
-  if(!confirm('¿Cancelar la orden?')) return;
+async function cancelarCarrito(){
+  if(!(await Orama.confirm('¿Cancelar la orden?',{danger:true,okText:'Sí, cancelar'}))) return;
   cart=[];
   updateCart();
   document.getElementById('cancel-btn').style.display='none';
@@ -210,8 +204,8 @@ async function submitOrder(){
     document.getElementById("cart-items").classList.remove("open");
     document.getElementById("cart-toggle").textContent="Ver ▲";
     updateCart();
-    alert("Orden enviada! Total: $"+parseFloat(data.total).toFixed(2));
-  }catch(e){alert("Error al enviar orden");}
+    Orama.toast.success("Orden enviada — Total: $"+parseFloat(data.total).toFixed(2));
+  }catch(e){Orama.toast.error("Error al enviar la orden");}
   btn.textContent="Ordenar";btn.disabled=false;
 }
 

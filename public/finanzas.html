@@ -4,71 +4,58 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Orama Café - Finanzas</title>
+<link rel="stylesheet" href="/css/orama.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  :root{--teal:#1aab85;--dark:#0d6b54;--brown:#2d1a0e;--light:#e8f8f4;--gray:#666;--border:#ddd;--red:#D46B6B;--amber:#E8A45A}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;background:#f0f7f4;max-width:480px;margin:0 auto}
-  .header{background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;padding:20px;text-align:center}
-  .header h1{font-size:22px;font-family:Georgia,serif;letter-spacing:2px}
-  .header p{font-size:12px;opacity:0.8;margin-top:4px}
-  .tabs{display:flex;background:white;border-bottom:2px solid var(--border)}
-  .tab{flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent}
-  .tab.active{color:var(--teal);border-bottom-color:var(--teal)}
-  .tab-content{display:none;padding:16px 16px 100px}
-  .tab-content.active{display:block}
+  body{max-width:480px;margin:0 auto}
+  .tab-content{padding:var(--space-3) var(--space-3) 100px}
 
   /* SUMMARY CARDS */
-  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-  .stat-card{background:white;border-radius:12px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:var(--space-3)}
+  .stat-card{background:var(--surface);border-radius:var(--radius);padding:14px;text-align:center;box-shadow:var(--shadow)}
   .stat-card.profit{grid-column:1/-1}
   .stat-value{font-size:22px;font-weight:700;color:var(--teal)}
-  .stat-value.negative{color:var(--red)}
-  .stat-value.neutral{color:var(--amber)}
-  .stat-label{font-size:11px;color:var(--gray);margin-top:4px;text-transform:uppercase;letter-spacing:0.4px}
+  .stat-value.negative{color:var(--error)}
+  .stat-value.neutral{color:var(--warning)}
+  .stat-label{font-size:var(--text-xs);color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.4px}
 
   /* DATE FILTER */
-  .date-filter{background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
-  .date-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-  .date-label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px}
-  .date-input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px;font-family:Arial,sans-serif;outline:none}
+  .date-filter{background:var(--surface);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .date-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-bottom:10px}
+  .date-label{font-size:var(--text-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px}
+  .date-input{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;font-size:var(--text-sm);font-family:var(--font-body);outline:none}
   .date-input:focus{border-color:var(--teal)}
-  .search-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer}
 
   /* CHART */
-  .chart-card{background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
-  .chart-title{font-size:13px;font-weight:700;color:var(--brown);margin-bottom:12px}
+  .chart-card{background:var(--surface);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .chart-title{font-size:var(--text-sm);font-weight:700;color:var(--brown);margin-bottom:12px}
 
   /* EXPENSE FORM */
-  .expense-form{background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
-  .form-title{font-size:14px;font-weight:700;color:var(--brown);margin-bottom:12px}
-  .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
-  .cat-btn{background:#f5f5f5;border:2px solid transparent;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--gray)}
-  .cat-btn.selected{background:var(--light);border-color:var(--teal);color:var(--teal)}
+  .expense-form{background:var(--surface);border-radius:var(--radius);padding:var(--space-3);margin-bottom:12px;box-shadow:var(--shadow)}
+  .form-title{font-size:var(--text-sm);font-weight:700;color:var(--brown);margin-bottom:12px}
+  .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2);margin-bottom:12px}
+  .cat-btn{background:#f5f5f5;border:2px solid transparent;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;font-size:var(--text-xs);font-weight:600;color:var(--muted)}
+  .cat-btn.selected{background:var(--teal-tint);border-color:var(--teal);color:var(--teal)}
   .cat-btn-icon{font-size:20px;display:block;margin-bottom:4px}
   .field-group{margin-bottom:12px}
-  .field-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px}
-  .field-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-size:15px;font-family:Arial,sans-serif;outline:none}
+  .field-label{font-size:var(--text-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:5px}
+  .field-input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius);padding:11px 14px;font-size:var(--text-md);font-family:var(--font-body);outline:none}
   .field-input:focus{border-color:var(--teal)}
-  .submit-btn{width:100%;background:linear-gradient(135deg,#0d6b54,#1aab85);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 
   /* EXPENSE LIST */
-  .section-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.4px;margin:16px 0 8px}
-  .expense-row{background:white;border-radius:10px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center}
+  .section-label{font-size:var(--text-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin:var(--space-3) 0 var(--space-2)}
+  .expense-row{background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:var(--space-2);box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center}
   .expense-left{flex:1}
-  .expense-cat{font-size:13px;font-weight:700;color:var(--brown)}
-  .expense-desc{font-size:11px;color:var(--gray);margin-top:2px}
-  .expense-date{font-size:10px;color:var(--gray);margin-top:2px}
-  .expense-amount{font-size:15px;font-weight:700;color:var(--red);margin-right:10px}
-  .delete-btn{background:#fbe9e9;border:none;border-radius:50%;width:26px;height:26px;color:var(--red);cursor:pointer;font-size:14px;flex-shrink:0}
-  .empty{text-align:center;padding:30px;color:var(--gray);font-size:13px}
-  .spinner{width:24px;height:24px;border:2px solid rgba(26,171,133,0.3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.75s linear infinite;margin:20px auto}
-  @keyframes spin{to{transform:rotate(360deg)}}
+  .expense-cat{font-size:var(--text-sm);font-weight:700;color:var(--brown)}
+  .expense-desc{font-size:var(--text-xs);color:var(--muted);margin-top:2px}
+  .expense-date{font-size:10px;color:var(--muted);margin-top:2px}
+  .expense-amount{font-size:var(--text-md);font-weight:700;color:var(--error);margin-right:10px}
+  .delete-btn{background:#fbe9e9;border:none;border-radius:50%;width:26px;height:26px;color:var(--error);cursor:pointer;font-size:14px;flex-shrink:0}
 </style>
 </head>
 <body>
-<div class="header">
-  <button onclick="window.location.href='/dashboard.html'" style="background:rgba(255,255,255,0.2);border:none;border-radius:20px;padding:5px 12px;color:white;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">← Dashboard</button>
+<div class="o-header">
+  <button class="btn btn--ghost btn--sm" onclick="location.href='/dashboard.html'" style="margin-bottom:var(--space-2)">← Dashboard</button>
   <h1>🌿 ORAMA CAFÉ</h1>
   <p>Finanzas</p>
 </div>
@@ -91,7 +78,7 @@
         <input type="date" id="pl-to" class="date-input">
       </div>
     </div>
-    <button class="search-btn" onclick="loadPL()">📊 Ver reporte</button>
+    <button class="btn btn--primary btn--block" onclick="loadPL()">📊 Ver reporte</button>
   </div>
 
   <div class="stat-grid">
@@ -112,11 +99,11 @@
   <div class="chart-card">
     <div class="chart-title">Ingresos vs Gastos por mes</div>
     <canvas id="pl-chart" height="200"></canvas>
-    <div id="chart-empty" style="text-align:center;padding:20px;color:var(--gray);font-size:13px;display:none">Sin datos para mostrar</div>
+    <div id="chart-empty" class="empty" style="display:none"><span class="empty__icon">📈</span>Sin datos para mostrar</div>
   </div>
 
   <div class="section-label">Detalle de gastos por categoría</div>
-  <div id="pl-cat-list"><div class="empty">Selecciona un rango de fechas</div></div>
+  <div id="pl-cat-list"><div class="empty"><span class="empty__icon">🗓️</span>Selecciona un rango de fechas</div></div>
 </div>
 
 <!-- GASTOS TAB -->
@@ -156,13 +143,14 @@
       </div>
     </div>
 
-    <button class="submit-btn" onclick="submitGasto()">Guardar gasto</button>
+    <button class="btn btn--primary btn--block" id="gasto-submit" onclick="submitGasto()">Guardar gasto</button>
   </div>
 
   <div class="section-label">Gastos recientes</div>
   <div id="gastos-list"><div class="spinner"></div></div>
 </div>
 
+<script src="/js/orama.js"></script>
 <script>
 let plChart = null;
 let selectedCat = 'Café e Ingredientes';
@@ -192,8 +180,9 @@ function selectCat(btn, cat){
 async function loadPL(){
   const from = document.getElementById('pl-from').value;
   const to = document.getElementById('pl-to').value;
-  if(!from||!to){alert('Selecciona ambas fechas');return;}
+  if(!from||!to){Orama.toast.warning('Selecciona ambas fechas');return;}
 
+  document.getElementById('pl-cat-list').innerHTML = '<div class="spinner"></div>';
   try{
     const [finRes, gastosRes] = await Promise.all([
       fetch('/api/finanzas?from='+from+'&to='+to),
@@ -243,9 +232,9 @@ async function loadPL(){
     const cats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
     document.getElementById('pl-cat-list').innerHTML = cats.length ?
       cats.map(([cat,total])=>'<div class="expense-row"><div class="expense-left"><div class="expense-cat">'+cat+'</div></div><div class="expense-amount">$'+total.toFixed(2)+'</div></div>').join('') :
-      '<div class="empty">Sin gastos en este periodo</div>';
+      '<div class="empty"><span class="empty__icon">✅</span>Sin gastos en este periodo</div>';
 
-  }catch(e){alert('Error al cargar reporte');}
+  }catch(e){Orama.toast.error('Error al cargar el reporte');document.getElementById('pl-cat-list').innerHTML='<div class="empty"><span class="empty__icon">⚠️</span>Error al cargar</div>';}
 }
 
 async function loadGastos(){
@@ -253,7 +242,7 @@ async function loadGastos(){
     const res = await fetch('/api/gastos');
     const gastos = await res.json();
     const list = document.getElementById('gastos-list');
-    if(!gastos.length){list.innerHTML='<div class="empty">Sin gastos registrados</div>';return;}
+    if(!gastos.length){list.innerHTML='<div class="empty"><span class="empty__icon">💸</span>Sin gastos registrados<span class="empty__hint">Registra el primero con el formulario de arriba</span></div>';return;}
     list.innerHTML = gastos.map(g=>
       '<div class="expense-row">'+
       '<div class="expense-left">'+
@@ -265,7 +254,7 @@ async function loadGastos(){
       '<button class="delete-btn" onclick="deleteGasto('+g.id+')">×</button>'+
       '</div>'
     ).join('');
-  }catch(e){document.getElementById('gastos-list').innerHTML='<div class="empty">Error al cargar</div>';}
+  }catch(e){document.getElementById('gastos-list').innerHTML='<div class="empty"><span class="empty__icon">⚠️</span>Error al cargar</div>';}
 }
 
 async function submitGasto(){
@@ -273,10 +262,10 @@ async function submitGasto(){
   const desc = cat==='Otro' ? document.getElementById('gasto-otro').value.trim() : document.getElementById('gasto-desc').value.trim();
   const monto = parseFloat(document.getElementById('gasto-monto').value);
   const fecha = document.getElementById('gasto-fecha').value;
-  if(!monto||monto<=0){alert('Ingresa un monto válido');return;}
-  if(cat==='Otro'&&!desc){alert('Describe el gasto');return;}
+  if(!monto||monto<=0){Orama.toast.warning('Ingresa un monto válido');return;}
+  if(cat==='Otro'&&!desc){Orama.toast.warning('Describe el gasto');return;}
 
-  const btn = document.querySelector('.submit-btn');
+  const btn = document.getElementById('gasto-submit');
   btn.textContent='Guardando...';btn.disabled=true;
   try{
     await fetch('/api/gastos',{
@@ -287,14 +276,16 @@ async function submitGasto(){
     document.getElementById('gasto-monto').value='';
     document.getElementById('gasto-desc').value='';
     document.getElementById('gasto-otro').value='';
+    Orama.toast.success('Gasto guardado');
     loadGastos();
-  }catch(e){alert('Error al guardar');}
+  }catch(e){Orama.toast.error('Error al guardar');}
   btn.textContent='Guardar gasto';btn.disabled=false;
 }
 
 async function deleteGasto(id){
-  if(!confirm('¿Eliminar este gasto?')) return;
+  if(!(await Orama.confirm('¿Eliminar este gasto?',{danger:true,okText:'Eliminar'}))) return;
   await fetch('/api/gastos/'+id,{method:'DELETE'});
+  Orama.toast.success('Gasto eliminado');
   loadGastos();
 }
 
