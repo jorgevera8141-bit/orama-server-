@@ -23,7 +23,7 @@ app.get('/api/debug/ordenes', async (req, res) => {
 });app.get('/api/ordenes/dia', async (req, res) => {
   const date = req.query.date || new Date().toLocaleDateString('en-CA');
   const result = await pool.query(
-    "SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card, created_at FROM ordenes WHERE status='cerrada' AND DATE(created_at)=$1 ORDER BY created_at ASC",
+    "SELECT id, mesa_nombre, total, payment_method, amount_cash, amount_card, created_at FROM ordenes WHERE status='cerrada' AND DATE(mx(created_at))=$1 ORDER BY created_at ASC",
     [date]
   );
   res.json(result.rows);
@@ -164,6 +164,22 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_inv_mov_reason ON inventory_movements(reason);
     CREATE INDEX IF NOT EXISTS idx_inv_mov_order ON inventory_movements(order_id);
     CREATE INDEX IF NOT EXISTS idx_recipe_menu ON recipe_items(menu_item_id);
+
+    -- ── REPORTING (Phase 3) ──
+    -- created_at is stored in UTC; mx() returns the wall-clock time in the
+    -- café's timezone so DATE()/hour/day-of-week bucket correctly.
+    CREATE OR REPLACE FUNCTION mx(ts timestamp) RETURNS timestamp AS $mx$
+      SELECT ts AT TIME ZONE 'UTC' AT TIME ZONE 'America/Mexico_City'
+    $mx$ LANGUAGE sql STABLE;
+
+    ALTER TABLE ordenes ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP;
+
+    CREATE TABLE IF NOT EXISTS orama_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    INSERT INTO orama_settings (key, value) VALUES ('margin_threshold_pct', '70')
+      ON CONFLICT (key) DO NOTHING;
   `);
 
   await pool.query(`
@@ -226,32 +242,32 @@ app.get('/api/reportes', async (req, res) => {
       SELECT 
         COUNT(*) as ordenes,
         COALESCE(SUM(total),0) as total,
-        COUNT(DISTINCT DATE(created_at)) as dias
-      FROM ordenes 
-      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+        COUNT(DISTINCT DATE(mx(created_at))) as dias
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
     `, [from, to]),
     pool.query(`
       SELECT mi.categoria, COALESCE(SUM(oi.precio * oi.cantidad),0) as total
       FROM orden_items oi
       JOIN ordenes o ON o.id = oi.orden_id
       JOIN menu_items mi ON mi.nombre = oi.item_nombre
-      WHERE o.status='cerrada' AND DATE(o.created_at) BETWEEN $1 AND $2
+      WHERE o.status='cerrada' AND DATE(mx(o.created_at)) BETWEEN $1 AND $2
       GROUP BY mi.categoria
       ORDER BY total DESC
     `, [from, to]),
     pool.query(`
-      SELECT * FROM ordenes 
-      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      SELECT * FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
       ORDER BY created_at DESC
       LIMIT 100
     `, [from, to]),
     pool.query(`
-      SELECT oi.item_nombre, 
+      SELECT oi.item_nombre,
         SUM(oi.cantidad) as cantidad,
         SUM(oi.precio * oi.cantidad) as total
       FROM orden_items oi
       JOIN ordenes o ON o.id = oi.orden_id
-      WHERE o.status='cerrada' AND DATE(o.created_at) BETWEEN $1 AND $2
+      WHERE o.status='cerrada' AND DATE(mx(o.created_at)) BETWEEN $1 AND $2
       GROUP BY oi.item_nombre
       ORDER BY cantidad DESC
       LIMIT 20
@@ -261,7 +277,7 @@ app.get('/api/reportes', async (req, res) => {
         COUNT(*) as ordenes,
         COALESCE(SUM(total),0) as total
       FROM ordenes
-      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
       GROUP BY payment_method
       ORDER BY total DESC
     `, [from, to])
@@ -308,7 +324,9 @@ app.put('/api/ordenes/:id/cerrar', async (req, res) => {
   const orden = await pool.query('SELECT * FROM ordenes WHERE id=$1', [req.params.id]);
   const wasOpen = orden.rows[0]?.status === 'abierta';
   await pool.query(
-    "UPDATE ordenes SET status='cerrada', payment_method=$1, amount_cash=$2, amount_card=$3, notas=$4 WHERE id=$5",
+    `UPDATE ordenes SET status='cerrada', payment_method=$1, amount_cash=$2, amount_card=$3, notas=$4,
+       closed_at = COALESCE(closed_at, CURRENT_TIMESTAMP)
+     WHERE id=$5`,
     [payment_method||'efectivo', amount_cash||0, amount_card||0, notas||'', req.params.id]
   );
 
@@ -348,8 +366,8 @@ app.get('/api/resumen', async (req, res) => {
       COALESCE(SUM(CASE WHEN payment_method='tarjeta' THEN total ELSE 0 END),0) as total_tarjeta,
       COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_cash ELSE 0 END),0) as mixto_efectivo,
       COALESCE(SUM(CASE WHEN payment_method='mixto' THEN amount_card ELSE 0 END),0) as mixto_tarjeta
-    FROM ordenes 
-    WHERE status='cerrada' AND DATE(created_at)=$1
+    FROM ordenes
+    WHERE status='cerrada' AND DATE(mx(created_at))=$1
   `, [filterDate]);
   res.json(result.rows[0]);
 });
@@ -399,11 +417,11 @@ app.get('/api/finanzas', async (req, res) => {
   const { from, to } = req.query;
   const [ingresos, gastos] = await Promise.all([
     pool.query(`
-      SELECT 
-        TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') as mes,
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', mx(created_at)), 'YYYY-MM') as mes,
         COALESCE(SUM(total), 0) as total
-      FROM ordenes 
-      WHERE status='cerrada' AND DATE(created_at) BETWEEN $1 AND $2
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
       GROUP BY mes ORDER BY mes
     `, [from, to]),
     pool.query(`
@@ -972,6 +990,199 @@ app.put('/api/recipes/:menuItemId', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS & ANALYTICS (Phase 3) — all dates in America/Mexico_City via mx()
+// ═══════════════════════════════════════════════════════════════
+
+// settings key/value (currently: margin_threshold_pct)
+app.get('/api/settings/:key', async (req, res) => {
+  const r = await pool.query('SELECT value FROM orama_settings WHERE key=$1', [req.params.key]);
+  res.json({ key: req.params.key, value: r.rows[0]?.value ?? null });
+});
+app.put('/api/settings/:key', async (req, res) => {
+  const { value } = req.body || {};
+  await pool.query(
+    `INSERT INTO orama_settings (key, value) VALUES ($1,$2)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [req.params.key, String(value)]
+  );
+  res.json({ success: true });
+});
+
+// the equally-long window immediately before [from, to]
+function prevRange(from, to) {
+  const f = new Date(from + 'T00:00:00Z');
+  const t = new Date(to + 'T00:00:00Z');
+  const span = t - f;
+  const pt = new Date(f.getTime() - 86400000);
+  const pf = new Date(pt.getTime() - span);
+  const iso = d => d.toISOString().slice(0, 10);
+  return { from: iso(pf), to: iso(pt) };
+}
+
+async function periodKpis(from, to) {
+  const [sales, exp] = await Promise.all([
+    pool.query(`
+      SELECT COUNT(*)::int AS ordenes, COALESCE(SUM(total),0)::float AS ingresos
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+    `, [from, to]),
+    pool.query(`SELECT COALESCE(SUM(monto),0)::float AS gastos FROM gastos WHERE fecha BETWEEN $1 AND $2`, [from, to])
+  ]);
+  const ingresos = sales.rows[0].ingresos;
+  const ordenes = sales.rows[0].ordenes;
+  const gastos = exp.rows[0].gastos;
+  return {
+    ingresos, gastos, ordenes,
+    neto: ingresos - gastos,
+    ticket: ordenes ? ingresos / ordenes : 0
+  };
+}
+
+// main dashboard bundle
+app.get('/api/reportes/v2', async (req, res) => {
+  const from = req.query.from, to = req.query.to;
+  if (!from || !to) return res.status(400).json({ message: 'from y to requeridos' });
+  const prev = prevRange(from, to);
+
+  const [kpi, kpi_prev, serie, pagos, categorias, topQty, topIngreso, mesas, lista] = await Promise.all([
+    periodKpis(from, to),
+    periodKpis(prev.from, prev.to),
+    pool.query(`
+      SELECT DATE(mx(created_at))::text AS d,
+             COUNT(*)::int AS ordenes,
+             COALESCE(SUM(total),0)::float AS ingresos
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+      GROUP BY d ORDER BY d
+    `, [from, to]),
+    pool.query(`
+      SELECT payment_method, COUNT(*)::int AS ordenes, COALESCE(SUM(total),0)::float AS total
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+      GROUP BY payment_method ORDER BY total DESC
+    `, [from, to]),
+    pool.query(`
+      SELECT mi.categoria, COALESCE(SUM(oi.precio*oi.cantidad),0)::float AS total,
+             COALESCE(SUM(oi.cantidad),0)::int AS cantidad
+      FROM orden_items oi
+      JOIN ordenes o ON o.id = oi.orden_id
+      JOIN menu_items mi ON mi.nombre = oi.item_nombre
+      WHERE o.status='cerrada' AND DATE(mx(o.created_at)) BETWEEN $1 AND $2
+      GROUP BY mi.categoria ORDER BY total DESC
+    `, [from, to]),
+    pool.query(`
+      SELECT oi.item_nombre, SUM(oi.cantidad)::int AS cantidad,
+             SUM(oi.precio*oi.cantidad)::float AS ingreso
+      FROM orden_items oi
+      JOIN ordenes o ON o.id = oi.orden_id
+      WHERE o.status='cerrada' AND DATE(mx(o.created_at)) BETWEEN $1 AND $2
+      GROUP BY oi.item_nombre ORDER BY cantidad DESC LIMIT 15
+    `, [from, to]),
+    pool.query(`
+      SELECT oi.item_nombre, SUM(oi.cantidad)::int AS cantidad,
+             SUM(oi.precio*oi.cantidad)::float AS ingreso
+      FROM orden_items oi
+      JOIN ordenes o ON o.id = oi.orden_id
+      WHERE o.status='cerrada' AND DATE(mx(o.created_at)) BETWEEN $1 AND $2
+      GROUP BY oi.item_nombre ORDER BY ingreso DESC LIMIT 15
+    `, [from, to]),
+    pool.query(`
+      SELECT mesa_nombre,
+             COUNT(*)::int AS ordenes,
+             COALESCE(SUM(total),0)::float AS ingresos,
+             (COALESCE(SUM(total),0) / NULLIF(COUNT(*),0))::float AS ticket,
+             (AVG(EXTRACT(EPOCH FROM (closed_at - created_at))/60)
+               FILTER (WHERE closed_at IS NOT NULL))::float AS min_prom
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+      GROUP BY mesa_nombre ORDER BY ingresos DESC
+    `, [from, to]),
+    pool.query(`
+      SELECT id, mesa_nombre, total::float, payment_method, notas, created_at
+      FROM ordenes
+      WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+      ORDER BY created_at DESC LIMIT 100
+    `, [from, to])
+  ]);
+
+  res.json({
+    rango: { from, to }, prev,
+    kpi, kpi_prev,
+    serie: serie.rows,
+    pagos: pagos.rows,
+    categorias: categorias.rows,
+    top_qty: topQty.rows,
+    top_ingreso: topIngreso.rows,
+    mesas: mesas.rows,
+    ordenes_lista: lista.rows
+  });
+});
+
+// peak hours: order volume by day-of-week x hour-of-day (MX time)
+app.get('/api/reportes/horas', async (req, res) => {
+  const from = req.query.from, to = req.query.to;
+  if (!from || !to) return res.status(400).json({ message: 'from y to requeridos' });
+  const r = await pool.query(`
+    SELECT EXTRACT(DOW  FROM mx(created_at))::int  AS dow,
+           EXTRACT(HOUR FROM mx(created_at))::int  AS hora,
+           COUNT(*)::int AS ordenes,
+           COALESCE(SUM(total),0)::float AS ingresos
+    FROM ordenes
+    WHERE status='cerrada' AND DATE(mx(created_at)) BETWEEN $1 AND $2
+    GROUP BY dow, hora ORDER BY dow, hora
+  `, [from, to]);
+  res.json({ celdas: r.rows });
+});
+
+// per-item cost & margin from Phase 2 recipe data
+app.get('/api/reportes/margenes', async (req, res) => {
+  const thr = await pool.query("SELECT value FROM orama_settings WHERE key='margin_threshold_pct'");
+  const threshold_pct = parseFloat(thr.rows[0]?.value ?? '70');
+
+  const [cov, items] = await Promise.all([
+    pool.query(`
+      SELECT (SELECT COUNT(*) FROM menu_items)::int AS total,
+             (SELECT COUNT(DISTINCT menu_item_id) FROM recipe_items)::int AS con_receta,
+             (SELECT COUNT(*) FROM inventory_items WHERE cost_per_unit > 0)::int AS insumos_con_costo
+    `),
+    pool.query(`
+      WITH costo AS (
+        SELECT ri.menu_item_id,
+               SUM(ri.quantity_used * ii.cost_per_unit)::float AS costo
+        FROM recipe_items ri
+        JOIN inventory_items ii ON ii.id = ri.inventory_item_id
+        GROUP BY ri.menu_item_id
+      ),
+      ventas AS (
+        SELECT oi.item_nombre,
+               SUM(oi.cantidad)::int AS vendidos,
+               SUM(oi.precio*oi.cantidad)::float AS ingreso
+        FROM orden_items oi
+        JOIN ordenes o ON o.id = oi.orden_id
+        WHERE o.status='cerrada' AND mx(o.created_at) >= (now() AT TIME ZONE 'America/Mexico_City') - INTERVAL '30 days'
+        GROUP BY oi.item_nombre
+      )
+      SELECT mi.id AS menu_item_id, mi.nombre, mi.categoria, mi.precio::float AS precio,
+             c.costo,
+             (mi.precio - c.costo)::float AS margen,
+             CASE WHEN mi.precio > 0 THEN ((mi.precio - c.costo)/mi.precio*100)::float ELSE NULL END AS margen_pct,
+             COALESCE(v.vendidos,0)::int AS vendidos_30d,
+             COALESCE(v.ingreso,0)::float AS ingreso_30d
+      FROM costo c
+      JOIN menu_items mi ON mi.id = c.menu_item_id
+      LEFT JOIN ventas v ON v.item_nombre = mi.nombre
+      ORDER BY margen_pct ASC NULLS LAST
+    `)
+  ]);
+
+  res.json({
+    threshold_pct,
+    cobertura: cov.rows[0],
+    items: items.rows.map(x => ({ ...x, bajo_umbral: x.margen_pct != null && x.margen_pct < threshold_pct }))
+  });
 });
 
 initDB().then(() => {
