@@ -24,7 +24,7 @@
   .search-input:focus{border-color:var(--teal)}
   .categories{display:flex;overflow-x:auto;gap:var(--space-2);padding:10px var(--space-3);background:var(--surface);border-bottom:1px solid var(--line)}
   .cat-btn{background:var(--teal-tint);border:none;border-radius:20px;padding:7px 14px;font-size:var(--text-xs);font-weight:600;color:var(--teal);cursor:pointer;white-space:nowrap}
-  .cat-btn.active{background:var(--teal);color:#fff}
+  .cat-btn.active{background-color:var(--teal);color:#fff;background-size:cover;background-position:center}
   .items{padding:10px var(--space-3) 220px}
   .item{background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-bottom:var(--space-2);display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow);border-left:3px solid var(--teal)}
   .item-name{font-size:var(--text-sm);font-weight:600;color:var(--brown)}
@@ -112,6 +112,23 @@ function changeMesa(){
   cart=[];updateCart();
 }
 
+// one photo per category (only where a matching image exists)
+const CAT_IMG={
+  'Cafe Espresso y Chocolate':'/images/espresso-pour.jpeg',
+  'Especialidades de Cafe':'/images/espresso-pour.jpeg',
+  'Reposteria':'/images/pastries-croissants.jpeg',
+  'Tes':'/images/iced-tea.jpeg',
+  'Fuente de Sodas':'/images/iced-tea.jpeg'
+};
+function paintCats(){
+  document.querySelectorAll(".cat-btn").forEach(b=>{
+    const img=b.classList.contains("active") && CAT_IMG[b.textContent];
+    b.style.backgroundImage = img
+      ? "linear-gradient(rgba(13,107,84,0.68),rgba(13,107,84,0.68)), url('"+img+"')"
+      : "";
+  });
+}
+
 async function loadMenu(){
   const res=await fetch("/api/menu");
   menu=await res.json();
@@ -119,6 +136,7 @@ async function loadMenu(){
   document.getElementById("categories").innerHTML=cats.map(c=>
     '<button class="cat-btn'+(c==="Todos"?" active":"")+'" onclick="filterCat(this.textContent)">'+c+'</button>'
   ).join("");
+  paintCats();
   renderItems();
 }
 
@@ -127,6 +145,7 @@ function filterCat(cat){
   searchQuery="";
   document.getElementById("search-input").value="";
   document.querySelectorAll(".cat-btn").forEach(b=>b.classList.toggle("active",b.textContent===cat));
+  paintCats();
   renderItems();
 }
 
@@ -134,6 +153,7 @@ function searchItems(q){
   searchQuery=q;
   currentCat="Todos";
   document.querySelectorAll(".cat-btn").forEach(b=>b.classList.toggle("active",b.textContent==="Todos"));
+  paintCats();
   renderItems();
 }
 

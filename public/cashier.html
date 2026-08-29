@@ -52,6 +52,15 @@
   .cancel-modal-btn{width:100%;background:none;border:1.5px solid var(--line);border-radius:var(--radius);padding:12px;font-size:var(--text-sm);font-weight:600;color:var(--muted);cursor:pointer}
   .split-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
 
+  /* PAYMENT SUCCESS (brief, auto-dismiss) */
+  #success-modal{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;background:rgba(13,107,84,0.55);padding:var(--space-4)}
+  #success-modal.open{display:flex}
+  .success-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--space-4);max-width:300px;width:100%;text-align:center}
+  .success-img{width:160px;height:160px;object-fit:cover;border-radius:var(--radius);margin-bottom:var(--space-3);background:var(--teal-tint)}
+  .success-check{font-size:34px;line-height:1;color:var(--teal);font-weight:700}
+  .success-title{font-size:var(--text-md);font-weight:700;color:var(--brown);margin-top:var(--space-1)}
+  .success-amount{font-size:24px;font-weight:700;color:var(--teal);margin-top:var(--space-1)}
+
   /* SPLIT SCREEN */
   .split-screen{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:50;overflow-y:auto;max-width:480px;left:50%;transform:translateX(-50%)}
   .split-screen.open{display:block}
@@ -160,6 +169,16 @@
 <div class="modal-overlay" id="factura-modal">
   <div class="modal">
     <div id="factura-modal-content"></div>
+  </div>
+</div>
+
+<!-- PAYMENT SUCCESS (brief, auto-dismiss) -->
+<div id="success-modal" onclick="dismissSuccess()">
+  <div class="success-card">
+    <img class="success-img" src="/images/coffee-to-go.jpeg" alt="" onerror="this.style.display='none'">
+    <div class="success-check">✓</div>
+    <div class="success-title">Cobro registrado</div>
+    <div class="success-amount" id="success-amount">$0.00</div>
   </div>
 </div>
 
@@ -343,10 +362,28 @@ async function confirmarPago(){
   loadAll();
   // Mark person as paid if in split mode
   if(window._splitPersonCallback) window._splitPersonCallback();
-  // Show receipt
-  if(receiptId) showReceipt(receiptId, receiptTotal, receiptMethod);
-  // Offer to invoice (CFDI)
-  if(receiptId) offerFacturar(receiptId, receiptTotal, receiptMethod);
+  // Brief celebratory confirmation, then receipt + invoice offer
+  if(receiptId){
+    showSuccess(receiptTotal, ()=>{
+      showReceipt(receiptId, receiptTotal, receiptMethod);
+      offerFacturar(receiptId, receiptTotal, receiptMethod);
+    });
+  }
+}
+
+let _successTimer=null, _successDone=null;
+function showSuccess(total, done){
+  _successDone = done || null;
+  document.getElementById('success-amount').textContent = '$'+Number(total).toFixed(2);
+  document.getElementById('success-modal').classList.add('open');
+  clearTimeout(_successTimer);
+  _successTimer = setTimeout(dismissSuccess, 1900);
+}
+function dismissSuccess(){
+  clearTimeout(_successTimer);
+  document.getElementById('success-modal').classList.remove('open');
+  const d = _successDone; _successDone = null;
+  if(d) d();
 }
 
 async function showReceipt(ordenId, total, method) {

@@ -6,13 +6,26 @@
 <title>Orama Café</title>
 <link rel="stylesheet" href="/css/orama.css">
 <style>
-  /* login-specific: full-bleed brand background + centered card */
+  /* login-specific: full-bleed branded photo + dark teal overlay so the
+     card and logo stay readable; --teal-dark is the fallback if the
+     image can't load */
   body{
     font-family:var(--font-brand);
-    background:var(--brand-gradient);
+    background-color:var(--teal-dark);
+    background-image:linear-gradient(rgba(13,107,84,0.55), rgba(13,107,84,0.55)),
+      url("/images/hero-latte-art.jpeg");
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
     min-height:100vh;
-    display:flex;align-items:center;justify-content:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:var(--space-4);
+  }
+  .login-logo{
+    width:190px;height:190px;object-fit:contain;
+    border-radius:var(--radius-lg);
+    margin-bottom:var(--space-4);
+    box-shadow:0 10px 30px rgba(0,0,0,0.35);
   }
 
   .login-card{
@@ -23,12 +36,6 @@
     box-shadow:var(--shadow-lg);
     text-align:center;
   }
-
-  /* Logo area */
-  .logo-area{margin-bottom:var(--space-4)}
-  .logo-circle{width:80px;height:80px;background:var(--brand-gradient);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto var(--space-2);font-size:36px}
-  .logo-name{font-size:var(--text-xl);font-weight:700;color:var(--brown);letter-spacing:3px}
-  .logo-sub{font-size:var(--text-xs);color:var(--muted);letter-spacing:2px;margin-top:var(--space-1)}
 
   /* PIN pad */
   .pin-display{display:flex;gap:12px;justify-content:center;margin:var(--space-3) 0 var(--space-4)}
@@ -42,7 +49,7 @@
   .num-btn:active{background:var(--teal-tint);transform:scale(0.95)}
   .num-btn:disabled{opacity:0.45;cursor:default}
   .num-btn.delete{background:#fbe9e9;color:var(--error);font-size:18px}
-  .num-btn.empty{background:transparent;cursor:default}
+  .num-btn.blank{background:transparent;cursor:default}
 
   .error-msg{color:var(--error);font-size:var(--text-sm);font-family:var(--font-body);margin-bottom:12px;min-height:20px}
 
@@ -59,13 +66,11 @@
 </head>
 <body>
 
+<img class="login-logo" src="/logo.png" alt="Orama Café" onerror="this.style.display='none'">
+
 <div class="login-card">
   <!-- LOGIN SCREEN -->
   <div id="login-screen">
-    <div class="logo-area">
-    <img src="/logo.png" alt="Orama Café" style="width:180px;height:180px;object-fit:contain;margin-bottom:8px;border-radius:16px">
-    </div>
-
     <div class="pin-label" id="pin-label">Ingresa tu PIN</div>
     <div class="pin-display">
       <div class="pin-dot" id="dot-0"></div>
@@ -86,7 +91,7 @@
       <button class="num-btn" onclick="addPin('7')">7</button>
       <button class="num-btn" onclick="addPin('8')">8</button>
       <button class="num-btn" onclick="addPin('9')">9</button>
-      <button class="num-btn empty"></button>
+      <button class="num-btn blank"></button>
       <button class="num-btn" onclick="addPin('0')">0</button>
       <button class="num-btn delete" onclick="deletePin()">⌫</button>
     </div>
@@ -94,9 +99,6 @@
 
   <!-- ROLE SELECTION SCREEN -->
   <div id="role-screen" class="role-screen">
-    <div class="logo-area">
-      <div class="logo-circle">🌿</div>
-    </div>
     <div class="greeting" id="greeting">Hola!</div>
     <div class="greeting-sub" id="greeting-sub">¿Cuál es tu rol hoy?</div>
     <div class="role-grid" id="role-grid"></div>

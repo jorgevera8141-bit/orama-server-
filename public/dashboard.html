@@ -8,9 +8,13 @@
 <style>
   body{max-width:480px;margin:0 auto;min-height:100vh;position:relative}
 
-  .header{background:var(--brand-gradient);color:#fff;padding:14px var(--space-3);display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1}
-  .header-left h1{font-size:18px;color:#fff;letter-spacing:2px}
-  .header-left p{font-size:var(--text-xs);opacity:0.8;margin-top:2px}
+  .header{color:#fff;padding:18px var(--space-3) 22px;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1;min-height:92px;
+    background-color:var(--teal-dark);
+    background-image:linear-gradient(rgba(13,107,84,0.62), rgba(13,107,84,0.72)), url("/images/cafe-ambiance.jpeg");
+    background-size:cover;background-position:center;background-repeat:no-repeat}
+  .header-left h1{font-size:18px;color:#fff;letter-spacing:2px;text-shadow:0 1px 4px rgba(0,0,0,0.35)}
+  .header-left p{font-size:var(--text-xs);opacity:0.9;margin-top:2px;text-shadow:0 1px 3px rgba(0,0,0,0.35)}
+  .header-logo{position:absolute;right:var(--space-3);bottom:6px;width:26px;height:26px;object-fit:contain;opacity:0.5;pointer-events:none}
   .header-right{display:flex;align-items:center;gap:10px}
   .user-badge{background:rgba(255,255,255,0.2);border-radius:20px;padding:5px 12px;font-size:var(--text-xs);font-weight:700}
   .logout-btn{background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:32px;height:32px;color:#fff;font-size:14px;cursor:pointer}
@@ -86,6 +90,7 @@
     <span class="user-badge" id="user-badge">Admin</span>
     <button class="logout-btn" onclick="window.location.href='/login.html'" title="Cerrar sesion">&#9211;</button>
   </div>
+  <img class="header-logo" src="/logo.png" alt="" onerror="this.remove()">
 </div>
 <div class="nav">
   <button class="nav-btn active" onclick="showTab('inicio',this)">🏠 Inicio</button>

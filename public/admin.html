@@ -121,11 +121,11 @@
 </div>
 
 <div id="tab-productos" class="tab-content">
-  <div id="productos-body"><div class="empty-sm">Elige un periodo en la pestaña Resumen</div></div>
+  <div id="productos-body"><div class="empty">Elige un periodo en la pestaña Resumen</div></div>
 </div>
 
 <div id="tab-operacion" class="tab-content">
-  <div id="operacion-body"><div class="empty-sm">Elige un periodo en la pestaña Resumen</div></div>
+  <div id="operacion-body"><div class="empty">Elige un periodo en la pestaña Resumen</div></div>
 </div>
 
 <!-- MENÚ (sin cambios) -->
@@ -216,7 +216,7 @@ async function loadAll(){
     if(document.getElementById('tab-productos').classList.contains('active')) renderProductos();
     if(document.getElementById('tab-operacion').classList.contains('active')) renderOperacion();
   }catch(e){
-    document.getElementById('resumen-body').innerHTML = '<div class="empty-sm">⚠️ Error al cargar</div>';
+    document.getElementById('resumen-body').innerHTML = '<div class="empty">No se pudo cargar el reporte<span class="empty__hint">Revisa tu conexión e inténtalo de nuevo</span></div>';
   }
 }
 
@@ -294,7 +294,7 @@ function renderResumen(){
 
 // ─────────────────────────── PRODUCTOS ───────────────────────────
 async function renderProductos(){
-  if(!bundle){ document.getElementById('productos-body').innerHTML='<div class="empty-sm">Elige un periodo en la pestaña Resumen</div>'; return; }
+  if(!bundle){ document.getElementById('productos-body').innerHTML='<div class="empty">Elige un periodo en la pestaña Resumen</div>'; return; }
   const el = document.getElementById('productos-body');
   el.innerHTML = '<div class="spinner"></div>';
   const mg = await fetch('/api/reportes/margenes').then(r=>r.json());
@@ -371,7 +371,7 @@ async function saveThreshold(){
 
 // ─────────────────────────── OPERACIÓN ───────────────────────────
 async function renderOperacion(){
-  if(!bundle){ document.getElementById('operacion-body').innerHTML='<div class="empty-sm">Elige un periodo en la pestaña Resumen</div>'; return; }
+  if(!bundle){ document.getElementById('operacion-body').innerHTML='<div class="empty">Elige un periodo en la pestaña Resumen</div>'; return; }
   const el = document.getElementById('operacion-body');
   el.innerHTML = '<div class="spinner"></div>';
   const h = await fetch('/api/reportes/horas?from='+range.from+'&to='+range.to).then(r=>r.json());
@@ -465,7 +465,7 @@ function filterMenu(q){
 function renderMenuItems(list){
   document.getElementById('menu-list').innerHTML = list.map(i=>
     '<div class="menu-item-row"><div class="menu-item-info"><div class="menu-item-name">'+esc(i.nombre)+'</div><div class="menu-item-cat">'+esc(i.categoria)+'</div></div><span class="menu-item-price">$'+parseFloat(i.precio).toFixed(2)+'</span><button class="toggle-btn '+(i.activo?'active':'inactive')+'" onclick="toggleItem('+i.id+','+i.activo+')">'+(i.activo?'Activo':'Inactivo')+'</button></div>'
-  ).join('') || '<div class="empty-sm">Sin resultados</div>';
+  ).join('') || '<div class="empty">Sin resultados</div>';
 }
 async function toggleItem(id, currentStatus){
   await fetch('/api/menu/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({activo: currentStatus?0:1})});

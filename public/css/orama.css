@@ -192,11 +192,24 @@ a{color:var(--teal-dark)}
    ============================================================ */
 .empty{
   text-align:center;
-  padding:var(--space-6) var(--space-3);
+  padding:var(--space-5) var(--space-3);
   color:var(--muted);
   font-size:var(--text-sm);
 }
-.empty__icon{font-size:40px;display:block;margin-bottom:var(--space-2);opacity:.7}
+/* branded illustration above the text; falls back to a tinted rounded
+   panel (never a broken-image icon) if the file can't load */
+.empty::before{
+  content:"";
+  display:block;
+  width:min(240px,60%);
+  aspect-ratio:1/1;
+  margin:0 auto var(--space-3);
+  border-radius:var(--radius);
+  background:var(--teal-tint) url("/images/empty-state-illustration.jpeg") center/cover no-repeat;
+  opacity:.92;
+}
+/* legacy emoji icons (both naming styles) are superseded by the illustration */
+.empty__icon,.empty .empty-icon{display:none}
 .empty__hint{display:block;font-size:var(--text-xs);margin-top:var(--space-1);opacity:.8}
 
 /* ============================================================
